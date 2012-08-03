@@ -17,14 +17,18 @@
 
 ## 相关术语
 
-* replication 主从复制/复制
-* master 主节点
-* slave 附属节点
+* replication 复制
+* master 主库
+* slave 备库
 * event driven 事件驱动
 * cluster 集群
+* aof aof
+* key value 键-值
+* expire 过期
+* expire time 过期时间
 
 
-## Redis 实现内部使用的一些数据结构
+## Redis 内部数据结构
 
 * sds（simple dynamic string） 动态字符串
 * dict 字典
