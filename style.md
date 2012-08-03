@@ -43,25 +43,21 @@ Markdown 的标题可以用两种格式来书写：
 
 ## 代码
 
-代码使用 ``highlight`` 功能进行高亮：
+代码块使用 4 个空格进行缩进：
 
-    {% highlight c %}
-    void greet(void)
-    {
-        printf("hello world!\n");
-    }
-    {% endhighlight %}
+        void greet(void)
+        {
+            printf("hello world!\n");
+        }
 
 省略代码时，要在注释中进行说明：
 
-    {% highlight c %}
     void longFunction(void)
     {
         // 省略 ...
         printf("hello world\n");
         // 省略 ...
     }
-    {% endhighlight %}
 
 
 ## 行内代码
@@ -90,10 +86,23 @@ Markdown 的标题可以用两种格式来书写：
 
 所有文本正文使用中文、全角标点符号。
 
-比如：
+应该是：
 
     Redis 的作者是 Salvatore Sanfilippo （antirez）。
 
 而不是：
 
     Redis 的作者是 Salvatore Sanfilippo (antirez). 
+
+
+## 英文大小写
+
+在文本中，英文品牌和名称应该使用正确的大小写。
+
+应该是：
+
+    Redis 数据库内嵌了对 Lua 环境的支持。
+
+而不是：
+
+    redis 数据库内嵌了对 lua 环境的支持。
