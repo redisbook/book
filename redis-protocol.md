@@ -11,7 +11,7 @@ Redis的协议是纯ascii协议，没有任何二进制东西，牺牲了效率�
 
 下面这个图涵盖了接收request，处理请求，调用函数，发送reply的过程。
 
-![protocol](http://dongshenghall.xraypoint.com/?p=721)
+![protocol](https://raw.github.com/redisbook/book/master/image/redis_protocol_command.png)
 
 
 #网络库任何处理协议
@@ -19,17 +19,18 @@ Redis的协议是纯ascii协议，没有任何二进制东西，牺牲了效率�
 
 Redis 的网络事件库，我们在前面的文章已经讲过，readQueryFromClient 先从 fd 中读取数据，先存储在 c->querybuf 里(networking.c 823)。
 
-接下来函数 processInputBuffer 来解析 querybuf，上面说过如果是 telnet 发送的裸协议数据是没有\*打头的表示参数个数的辅助信息，针对telnet的数据跳到processInlineBuffer函数，而其他则通过函数processMultibulkBuffer。
+接下来函数 processInputBuffer 来解析 querybuf，上面说过如果是 telnet 发送的裸协议数据是没有\*打头的表示参数个数的辅助信息，针对 telnet 的数据跳到 processInlineBuffer 函数，而其他则通过函数 processMultibulkBuffer。
 
-这两个函数的作用一样，解析c->querybuf的字符串，分解成多参数到c->argc和c->argv里面，argc表示参数的个数，argv是个Redis_object的指针数组，每个指针指向一个Redis_object, object的ptr里存储具体的内容，对于”get a“的请求转化后，argc就是2，argv就是
+这两个函数的作用一样，解析c->querybuf的字符串，分解成多参数到c->argc和c->argv里面，argc表示参数的个数，argv是个 Redis_object 的指针数组，每个指针指向一个 Redis_object, object的ptr里存储具体的内容，对于”get a“的请求转化后，argc就是2，argv就是
 
     (gdb) p (char\*)(\*c->argv[0])->ptr
     $28 = 0x80ea5ec "get"
     (gdb) p (char*)(*c->argv[1])->ptr
     $26 = 0x80e9fc4 "a"
 
-协议解析后就执行命令。processCommand首先调用lookupCommand找到get对应的函数。在Redis server 启动的时候会调用populateCommandTable函数（Redis.c 830）把readonlyCommandTable数组转化成一个hash table（server.commands），lookupCommand就是一个简单的hash取值过程，通过key（get）找到相应的命令函数指针getCommand（ t_string.c 437）。
-getCommand比较简单，通过另一个全局的server.db这个hash table来查找key，并返回Redis object，然后通过addReplyBulk函数返回结果。
+协议解析后就执行命令。processCommand 首先调用 lookupCommand 找到 get 对应的函数。在Redis server 启动的时候会调用 populateCommandTable 函数（Redis.c 830）把 readonlyCommandTable 数组转化成一个hash table（server.commands），lookupCommand 就是一个简单的 hash 取值过程，通过key（get）找到相应的命令函数指针getCommand（t_string.c 437）。
+
+getCommand 比较简单，通过另一个全局的 server.db 这个 hash table 来查找 key，并返回 Redis object ，然后通过 addReplyBulk 函数返回结果。
 
 ##Requests格式
 
@@ -60,7 +61,7 @@ bulk replies是以$打头消息体，格式$值长度\r\n值\r\n，一般的get�
     addReply(c,obj);
     addReply(c,shared.crlf);
 
-### error messag
+### error message
 是以-ERR 打头的消息体，后面跟着出错的信息，以\r\n结尾，针对命令出错。
 
     Redis>d
