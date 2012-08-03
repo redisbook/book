@@ -34,11 +34,11 @@ dictht->used表示这个hash table里已经插入的key的个数，也就是dict
 ##rehash
 
 
-rehash 并不是一次性的迁移所有的key，而是随着 dictAdd，dictFind 函数的执行过程调度_dictRehashStep函数一次一个bucket下的key从ht[0]迁移到ht[1]。dict->rehashidx决定哪个bucket需要被迁移。当前bucket下的key都被迁移后，dict->rehashidx++，然后迁移下一个bucket，直到所有的bucket下的key被迁走。
+rehash 并不是一次性的迁移所有的 key，而是随着 dictAdd，dictFind 函数的执行过程调度_dictRehashStep 函数一次一个 bucket 下的 key 从 ht[0] 迁移到 ht[1]。dict->rehashidx 决定哪个 bucket 需要被迁移。当前 bucket 下的 key 都被迁移后，dict->rehashidx++，然后迁移下一个 bucket，直到所有的 bucket下的key被迁走。
 
-除了dict_add、dict_find出发rehash，另外Redis运行过程中会调用dictRehashMilliseconds函数，一次rehash 100个bucket，直到消耗了1秒才结束rehash，这样使得即使没有发生查询行为也会进行rehash的迁移。
+除了 dict_add、dict_find 出发 rehash，另外 Redis 运行过程中会调用 dictRehashMilliseconds 函数，一次 rehash 100个 bucket，直到消耗了1秒才结束 rehash，这样使得即使没有发生查询行为也会进行 rehash 的迁移。
 
-rehash的具体过程如下，遍历dict->rehashidx对应的bucket下的dictEntry链表的每个key，对key进行hash函数运算后于ht[1]->sizemask求位与，确定ht[1]的新bucket位置，然后加入到dictEntry链表里，然后ht[0].used--，ht[1].used++。当ht[0].used=0，释放ht[0]的table，再赋值ht[0]= ht[1]。
+rehash的具体过程如下，遍历 dict->rehashidx 对应的 bucket 下的 dictEntry 链表的每个key，对 key 进行 hash 函数运算后于 ht[1]->sizemask 求位与，确定 ht[1] 的新 bucket 位置，然后加入到 dictEntry 链表里，然后 ht[0].used--，ht[1].used++。当 ht[0].used=0，释放 ht[0] 的table，再赋值 ht[0] = ht[1]。
 
 在rehash的过程中，如果有新的key加入，直接加到ht[1]。如果key的查找，会先查ht[0]再查询ht[1]。如果key的删除，在ht[0]找到则删除返回，否则继续到ht[1]里寻找。在rehash的过程中，不会再检测是否需要expand。由于ht[1]是ht[0]size的2倍，每次dictAdd的时候都会迁移一个bucket，所以不会出现后ht[1]满了，而ht[0]还有数据的状况。
 
