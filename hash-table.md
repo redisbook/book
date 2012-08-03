@@ -1,8 +1,6 @@
 ##btree and hash
 
 
-![Redis hash table ](https://raw.github.com/redisbook/book/master/image/redis_dict.png)
-
 key-value 数据库的 kv 查询的实现有很多种，
 比如功能全面的 btree ，而 Redis 的作者选择了简单的 hash 来实现，使用 hash 就意味着无法使用范围查询等功能，但选择更好的 hash 函数可以达到更快的速度，而且代码的实现更简单。
 
@@ -13,6 +11,8 @@ key-value 数据库的 kv 查询的实现有很多种，
 
 ##hash源码分析
 
+
+![Redis hash table ](https://raw.github.com/redisbook/book/master/image/redis_dict.png)
 
 dict 为 hash table 的主结构体，dictht 是为 rehash 而存在的中间数据结构（在客户端的hash table实现中是没有 dictht，见附录3），bucket 就是 hash 算法里的桶，而 dictEntry 就为每个 key-value 结构体。 
 
