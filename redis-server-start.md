@@ -4,7 +4,7 @@
 ##主要流程
 
 
-![Redis-server](image/reds_server.png)
+![Redis-server](https://raw.github.com/redisbook/book/master/image/redis_server.png)
 
 我们从 redis-server 启动说起，从 main 函数开始遍历一下各个关键函数，先了解 Redis 主框架。
 
