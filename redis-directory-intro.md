@@ -20,6 +20,8 @@
 
 ##Makefile
 
+连``automake``都未使用，够简洁的。
+
 ``redis-server``，``redis-client``是编译之后的关键二进制，前者是服务端，后者是官方出品的客户端软件。
 
 ##redis.conf
@@ -37,7 +39,7 @@ redis.conf 是``redis-server``的启动配置文件, 后面有一章节会单独
 
 ###hiredis
 
-Redis 的c api，编译 Redis 官方客户端``redis-client``，工具``redis-checkaof``都需要使用它。
+Redis 的 c api，编译 Redis 官方客户端``redis-client``，工具``redis-checkaof``都需要使用它。
 
 api 包含了处理网络的``net.c``，包含多种多路复用的``adapters``目录，动态字符串``sds.c``，处理哈希结构的``dict.c``。
 
