@@ -18,6 +18,14 @@
     `-- utils
 
 
+##Makefile
+
+``redis-server``，``redis-client``是编译之后的关键二进制，前者是服务端，后者是官方出品的客户端软件。
+
+##redis.conf
+
+redis.conf 是``redis-server``的启动配置文件, 后面有一章节会单独讲解这个文件。
+
 ##deps
 
     hoterran@~/Projects/redis-2.4.16$ tree deps/ -L 1
