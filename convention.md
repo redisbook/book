@@ -4,7 +4,7 @@
 ## Redis 的各部分命令
 
 * string 字符串
-* hash 哈希表
+* hash 哈希
 * list 列表
 * set 集合
 * sorted set 有序集合
@@ -13,6 +13,8 @@
 * scripting 脚本
 * connection 连接
 * server 服务器
+* save 快照
+* aof aof
 
 
 ## 相关术语
@@ -34,10 +36,11 @@
 
 * sds（simple dynamic string） 动态字符串
 * dict 字典
-* hash 哈希表
+* hash table 哈希表
 * double-linked list 双链表
 * skip list 跳跃表
 * sentinel sentinel
 * intset intset
 * ziplist ziplist
 * zipmap zipmap
+
