@@ -26,6 +26,8 @@
 * key value 键-值
 * expire 过期
 * expire time 过期时间
+* fork 派生
+* instance 实例
 
 
 ## Redis 内部数据结构
