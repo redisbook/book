@@ -1,0 +1,22 @@
+digraph worker {
+    start_worker [label="Worker.work()\n启动 worker"];
+    get_job_from_queue [label="Queue.dequeue_any(...)\n取出任务"];
+    perform_job [label="派生出一个子进程来执行任务"];
+
+    job_perform_success [label="如果任务返回值不为 None\n将它赋值给 job.result 属性\n否则删除这个任务"];
+    job_perform_fail [label="将任务放进 FailedQueue"];
+
+    iter [label="循环"];
+
+
+    start_worker -> get_job_from_queue;
+    get_job_from_queue -> perform_job;
+
+    perform_job -> job_perform_success [label="执行成功"];
+    perform_job -> job_perform_fail [label="执行失败"];
+
+    job_perform_success -> iter;
+    job_perform_fail -> iter;
+
+    iter -> get_job_from_queue [label="处理下个任务"];
+}
