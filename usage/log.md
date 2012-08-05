@@ -3,14 +3,14 @@
 
 ## 定长日志
 
-使用 APPEND 命令，将定长日志追加到字符串中。
+使用 ``APPEND`` 命令，将定长日志追加到字符串中。
 
 来自： [APPEND 命令文档](http://redis.readthedocs.org/en/latest/string/append.html)
 
 
 ## 队列日志
 
-使用 LPUSH/RPUSH 命令，将日志放进 Redis 队列中。
+使用 ``LPUSH`` 或者 ``RPUSH`` 命令，将日志放进 Redis 队列中。
 
 
 ## 时间日志
