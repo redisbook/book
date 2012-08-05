@@ -34,7 +34,7 @@
 
  * 添加文件和时间事件。
 	1. 添加一个时间事件，函数是``serverCron``。这个函数会每 100ms 执行一次，后面会详细描述这个函数的作用。 
-    2. 添加一个监听的文件事件，把 accept 行为注册到只读的监听文件描述符上。
+    2. 添加一个监听的文件事件，把 accept 行为注册到只读的监听文件描述符上，回凋函数是``acceptTcpHandler``。
 
  * slowlogInit 启动慢日志功能，发现比较慢的命令。
 
@@ -47,11 +47,22 @@
 
 每次循环之前还会执行``beforeSleep``
 
-然后开始循环，这个循环目前每隔 100ms 会执行一次``serverCron``函数，并仅仅盯着监听的 fd，等待外部的连接。
+然后开始循环，这个循环目前每隔 100ms 会执行一次``serverCron``函数，并仅仅盯着监听的 fd，等待外部的连接，有连接则调用``acceptTcpHandler``。
 
 
+##serverCron
+
+时间事件``serverCron``会处理很多函数。
+
+ * 出日志展现 Redis 目前的状况。
+ * 查看是否需要 rehash 来迁移 keys 到新的 bucket，这个后面会详细讲。
+ * 关闭长时间不工作的 client。
+ * 处理 bgsave 或者 bgrewriteaof 的子进程退出后的收尾工作。
+ * 判断有 keys 的变化而需要执行 bgsave。
+ * 清理过期(expire)的 key。
+ * 如果自己是主库，会检测备库节点的状况，如果自己是备库，会连接主库。
 
 
+##acceptTcpHandler
 
-
-时间事件 serverCron 会处理很多函数，例如定时打出日志展现 Redis 目前的状况，查看是否需要 rehash 来迁移 keys 到新的 bucket，这个后面会详细讲。关闭长时间不工作的 client。处理 bgsave 或者 bgrewriteaof 的子进程退出后的收尾工作。判断有 keys 的变化而需要执行 bgsave。清理过期(expire)的key。检测 slave 节点的状况，处理自己作为 slave 的连接主库的工作。
+现在来看``redis-server``如何处理网络连接，见下一章。
