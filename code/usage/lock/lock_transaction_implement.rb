@@ -21,6 +21,7 @@ def acquire(key, timeout, uid)
 
     # 加锁成功？
     return result != nil
+
 end
 
 def release(key, uid)
@@ -43,4 +44,5 @@ def release(key, uid)
     else
         return false
     end
+
 end
