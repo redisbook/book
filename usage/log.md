@@ -214,6 +214,59 @@
     => 0
 
 
+## 实例：时间 feed
+
+日志除了应用在系统的内部之外，还可应用在程序的外部，作为一个单独的功能来使用。
+
+以时间日志为例子，很多网站都有自己的功能更新记录，这些记录通常有以下的形式：
+
+    ...
+    2012 年 9 月 11 日 添加评论功能
+    2012 年 8 月 26 日 添加用户上传功能
+    2012 年 8 月 15 日 添加 wiki 功能
+    2012 年 8 月 10 日 网站上线
+
+还有一种称为时间 feed 的功能，它和上面的功能记录一样，只是时间 feed 通常用在记录用户信息而不是网站信息，比如：
+
+    ...
+    2012 年 8 月 12 日 21 时 你写了文章《Redis 源码分析（1）》
+    2012 年 8 月 11 日 20 时 你关注了 @peter
+    2012 年 8 月 11 日 18 时 @peter 关注了你
+    2012 年 8 月 10 日 13 时 你注册了网站
+
+以上两种功能的写入和读取操作，都可以使用前面给出的时间日志实现来处理。除此之外，我们还要添加一个新的函数，用于读出最新的 ``n`` 条信息：
+
+    load 'time_log.rb'
+
+    def recent(category, n)
+        return $redis.zrevrange(category, 0, n-1, :with_scores => true)
+    end
+
+以下是一个时间 feed 实例：
+
+    irb(main):001:0> load 'time_feed.rb'
+    => true
+    irb(main):002:0> write('user-time-feed', 'register')                    # 写入
+    => true
+    irb(main):003:0> write('user-time-feed', '@peter following you')
+    => true
+    irb(main):004:0> write('user-time-feed', 'you following @peter')
+    => true
+    irb(main):005:0> write('user-time-feed', 'you write new post Redis code analysis (1)')
+    => true
+    irb(main):006:0> write('user-time-feed', '@peter comment on post Redis code analysis (1)')
+    => true
+    irb(main):007:0> write('user-time-feed', '@tom comment on post Redis code analysis (1)')
+    => true
+    irb(main):008:0> recent('user-time-feed', 5).each {|feed| p feed}       # 读取并打印最新 5 条时间 feed
+    ["@tom comment on post Redis code analysis (1)", 1344850781.377236]
+    ["@peter comment on post Redis code analysis (1)", 1344850767.113229]
+    ["you write new post Redis code analysis (1)", 1344850732.5523758]
+    ["you following @peter", 1344850695.8571677]
+    ["@peter following you", 1344850683.2889433]
+    => [["@tom comment on post Redis code analysis (1)", 1344850781.377236], ["@peter comment on post Redis code analysis (1)", 1344850767.113229], ["you write new post Redis code analysis (1)", 1344850732.5523758], ["you following @peter", 1344850695.8571677], ["@peter following you", 1344850683.2889433]]
+
+
 ## 多种日志实现之间的对比
 
 在前面介绍的三种日志实现中，只有时间日志可以直接存储时间信息，其他两种日志需要通过编码/解码（parse、JSON等手段）来对时间信息进行支持。
