@@ -7,7 +7,7 @@ def write(category, content)
 end
 
 def read(category, n)
-    return $redis.zrange(category, n, n, :with_scores => true)
+    return $redis.zrange(category, n, n, :with_scores => true).first
 end
 
 def read_all(category)

@@ -1,6 +1,12 @@
 # 日志
 
-TODO: 更详细的介绍
+一般来说，操作系统都会提供详细的日志功能，不过在一些情况下，也可以考虑将日志保存到 Redis 当中：
+
+- 你需要将多个机器的日志集中保存到一个日志服务器中
+
+- 你需要借助 Redis 提供的数据结构来对日志内容进行操作，查看或者用于数据分析
+
+有至少三种的方法在 Redis 中实现日志功能，它们的主要功能都一样，但也有各自不同的特色，以下几个小节就会分别介绍这些实现。
 
 
 ## API
@@ -30,13 +36,9 @@ TODO: 更详细的介绍
 
 ## 定长日志
 
-TODO: 更详细的解释
+定长日志的想法来自 Redis 的 [APPEND 命令文档](http://redis.readthedocs.org/en/latest/string/append.html)：它将数据保存在一个字符串中，新日志通过 ``APPEND`` 命令追加到字符串的最后，因为日志的长度是固定的，所以给定一个日志号码 ``n`` ，可以根据 ``n`` 和日志长度来算出日志在字符串中的起始索引和结尾索引，然后用 [GETRANGE](http://redis.readthedocs.org/en/latest/string/getrange.html) 命令取出日志的内容。
 
-使用 ``APPEND`` 命令，将定长日志追加到字符串中。
-
-来自： [APPEND 命令文档](http://redis.readthedocs.org/en/latest/string/append.html)
-
-定义：
+以下是一个保存年份的定长日志定义，它假设所有日志的长度都为 ``4`` ：
 
     require 'redis'
 
@@ -107,9 +109,14 @@ TODO: 更详细的解释
 
 ## 列表日志
 
-TODO: 更详细的解释
+列表日志的功能和定长日志差不多，它和定长日志的主要区别有以下两个：
 
-定义：
+1. 列表日志将日志内容保存在列表中，通过 [RPUSH](http://redis.readthedocs.org/en/latest/list/rpush.html) 命令添加日志、 [LINDEX](http://redis.readthedocs.org/en/latest/list/lindex.html) 命令和 [LRANGE](http://redis.readthedocs.org/en/latest/list/lrange.html) 命令读取日志。
+
+2. 列表日志不对日志长度进行要求。
+
+列表日志的定义如下：
+
 
     require 'redis'
 
@@ -159,13 +166,7 @@ TODO: 更详细的解释
 
 ## 时间日志
 
-将日志和时间信息放进 Redis 的有序集合中。
-
-TODO: 更详细的描述
-
-TODO： 更多和处理时间信息的 API ，比如 ``before(time)`` , ``after(time)`` , ``between(before, after)`` 等等。
-
-定义：
+时间日志保存在 Redis 的有序集合中，它将内容和时间信息一起保存在日志里，通过 [ZADD](http://redis.readthedocs.org/en/latest/sorted_set/zadd.html) 、 [ZRANGE](http://redis.readthedocs.org/en/latest/sorted_set/zrange.html) 、 [ZCARD](http://redis.readthedocs.org/en/latest/sorted_set/zcard.html) 等命令进行操作：
 
     require 'redis'
 
@@ -191,7 +192,7 @@ TODO： 更多和处理时间信息的 API ，比如 ``before(time)`` , ``after(
         return $redis.del(category)
     end
 
-测试：
+以下代码段模拟了一次服务器从链接失败到下线的过程，每个事件发生时的详细时间都被记录了下来：
 
     irb(main):001:0> load 'time_log.rb'
     => true
@@ -202,7 +203,7 @@ TODO： 更多和处理时间信息的 API ，比如 ``before(time)`` , ``after(
     irb(main):004:0> write('server-log', 'db server down')
     => true
     irb(main):005:0> read('server-log', 0)
-    => [["db connect fail", 1344786364.5974884]]
+    => ["db connect fail", 1344786364.5974884]
     irb(main):006:0> read_all('server-log')
     => [["db connect fail", 1344786364.5974884], ["db reconnect fail", 1344786375.6293638], ["db server down", 1344786389.518898]]
     irb(main):007:0> count('server-log')
@@ -213,15 +214,10 @@ TODO： 更多和处理时间信息的 API ，比如 ``before(time)`` , ``after(
     => 0
 
 
-### 实例：时间线
-
-TODO
-
-
 ## 多种日志之间的功能对比
 
-时间日志可以直接存储时间信息，而其他两种日志需要通过编码/解码（parse、JSON等手段）来对时间信息进行支持。
+在前面介绍的三种日志实现中，时间日志可以直接存储时间信息，而其他两种日志需要通过编码/解码（parse、JSON等手段）来对时间信息进行支持。
 
-定长日志最节省内存，不过 Redis 的字符串不提供截断（tirm）功能，因此对定长日志的部分删除操作没有其他两种日志来得方便。
+定长日志将所有内容都塞进一个字符串里面，所以定长日志最快，且最节省内存。不过 Redis 的字符串不提供截断（tirm）功能，因此对定长日志的部分删除操作没有其他两种日志来得方便。
 
-列表日志和时间日志的功能类似，如果要对时间信息进行处理，就用时间日志；如果需要对日志进行弹出操作，就用列表日志。
+定长日志和列表日志的功能是一样的，使用哪一个取决于日志内容的长度是否固定。
