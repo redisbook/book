@@ -18,10 +18,8 @@ def read_all(category)
     total_log_length = count(category)
 
     arr = Array.new
-    i = 0
-    while i < total_log_length do
+    0.upto(total_log_length-1) do |i|
         arr << all_log[i*LENGTH ... (i+1)*LENGTH]
-        i += 1
     end
     
     return arr
