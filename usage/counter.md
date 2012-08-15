@@ -120,24 +120,108 @@
     => 3
 
 
-## 计数器的分类和实现
+## 唯一计数器
 
-1) 数值计数器，可以按数值来增减的计数器。
+和简单计数器不同，唯一计数器对每个记录实体只计数一次。
 
-可以使用字符串 ``INCR`` 、 ``DECR`` 和 ``INCRBY`` 等命令实现。
+比如说，在 [StackOverflow](http://stackoverflow.com/) 网站上，用户可以对问题和答案进行提升和下沉投票，而且每个用户只能投票一次：
 
-也可以使用哈希结构的 ``HSET`` ``HINCRBY`` 等命令实现。
+![投票示例](https://raw.github.com/redisbook/book/bb003b6a7ec203fed21e64c392997fdbc440ad11/image/usage/vote.png)
 
-2) 唯一计数器，针对每个对象，只计数一次。
+这种投票系统就是唯一计数器的一个例子。
 
-可以使用集合的 ``SADD`` 、 ``SMEMBERS`` 等命令实现。
+以下是唯一计数器的基本 API ：
+
+``add(counter, obj)`` 将对象加入到计数器中，如果对象已经存在，返回 ``false`` ；添加成功返回 ``true`` 。
+
+``remove(counter, obj)`` 从计数器中移除对象 ``obj`` ，如果 ``obj`` 并不是计数器的对象，那么返回 ``false`` ；移除成功返回 ``true`` 。
+
+``is_member?(counter, obj)`` 检查 ``obj`` 是否已经存在于计数器。
+
+``members(counter)`` 返回计数器包括的所有成员对象。
+
+``count(counter)`` 返回计数器所有成员对象的数量。
+
+唯一计数器的 API 和简单计数器的 API 有些不同，而且唯一计数器的底层是使用 Redis 的集合来实现的，它的完整定义如下：
+
+    require 'redis'
+
+    $redis = Redis.new
+
+    def add(counter, member)
+        return $redis.sadd(counter, member)
+    end
+
+    def remove(counter, member)
+        return $redis.srem(counter, member)
+    end
+
+    def is_member?(counter ,member)
+        return $redis.sismember(counter, member)
+    end
+
+    def members(counter)
+        return $redis.members(counter)
+    end
+
+    def count(counter)
+        return $redis.scard(counter)
+    end
 
 
-## 实例：唯一标识符（uid）
+## 实例：提升/下沉投票
 
-TODO
+有了详细的 API 和实现之后，现在完成一个完整的提升/下沉投票实现了（有些网站也将这个功能称为有用/没用，或者喜欢/不喜欢）。
 
+对于每个问题，我们使用两个唯一计数器，分别计算提升和下沉投票，并且在每次投票前检查唯一计数器，确保不会出现重复投票。
 
-## 实例：喜欢/不喜欢
+以下是投票系统的详细实现：
 
-TODO
+    load 'unique_counter.rb'
+
+    def vote_up(question_id, user_id)
+        if voted?(question_id, user_id)
+            raise "alread voted"
+        end
+        return add("question-vote-up #{question_id}", user_id)
+    end
+
+    def vote_down(question_id, user_id)
+        if voted?(question_id, user_id)
+            raise "alread voted"
+        end
+        return add("question-vote-down #{question_id}", user_id)
+    end
+
+    def voted?(question_id, user_id)
+        return (is_member?("question-vote-up #{question_id}", user_id) or \
+                is_member?("question-vote-down #{question_id}", user_id))
+    end
+
+    def count_vote_up(question_id)
+        return count("question-vote-up #{question_id}")
+    end
+
+    def count_vote_down(question_id)
+        return count("question-vote-down #{question_id}")
+    end
+
+测试：
+
+    irb(main):001:0> load 'vote_question.rb'
+    => true
+    irb(main):002:0> vote_up(10086, 123)        # 投票
+    => true
+    irb(main):003:0> vote_up(10086, 456)
+    => true
+    irb(main):004:0> vote_down(10086, 789)
+    => true
+    irb(main):005:0> count_vote_up(10086)       # 计数
+    => 2
+    irb(main):006:0> count_vote_down(10086)
+    => 1
+    irb(main):007:0> vote_up(10086, 123)        # 不能重复投票
+    RuntimeError: alread voted
+        from vote_question.rb:5:in `vote_up'
+        from (irb):7
+        from /usr/bin/irb:12:in `<main>'
