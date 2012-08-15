@@ -214,9 +214,9 @@
     => 0
 
 
-## 实例：时间 feed
+## 实例：时间线
 
-日志除了应用在系统的内部之外，还可应用在程序的外部，作为一个单独的功能来使用。
+日志除了应用在系统的内部之外，还可在程序外部作为一个单独的功能来使用。
 
 以时间日志为例子，很多网站都有自己的功能更新记录，这些记录通常有以下的形式：
 
@@ -226,7 +226,7 @@
     2012 年 8 月 15 日 添加 wiki 功能
     2012 年 8 月 10 日 网站上线
 
-还有一种称为时间 feed 的功能，它和上面的功能记录一样，只是时间 feed 通常用在记录用户信息而不是网站信息，比如：
+还有一种被称为时间线的功能，它和上面的功能记录一样，只是时间线通常用在记录用户信息而不是网站信息，比如：
 
     ...
     2012 年 8 月 12 日 21 时 你写了文章《Redis 源码分析（1）》
@@ -242,23 +242,23 @@
         return $redis.zrevrange(category, 0, n-1, :with_scores => true)
     end
 
-以下是一个时间 feed 实例：
+以下是一个时间线实例：
 
-    irb(main):001:0> load 'time_feed.rb'
+    irb(main):001:0> load 'timeline.rb'
     => true
-    irb(main):002:0> write('user-time-feed', 'register')                    # 写入
+    irb(main):002:0> write('user-timeline', 'register')                    # 写入
     => true
-    irb(main):003:0> write('user-time-feed', '@peter following you')
+    irb(main):003:0> write('user-timeline', '@peter following you')
     => true
-    irb(main):004:0> write('user-time-feed', 'you following @peter')
+    irb(main):004:0> write('user-timeline', 'you following @peter')
     => true
-    irb(main):005:0> write('user-time-feed', 'you write new post Redis code analysis (1)')
+    irb(main):005:0> write('user-timeline', 'you write new post Redis code analysis (1)')
     => true
-    irb(main):006:0> write('user-time-feed', '@peter comment on post Redis code analysis (1)')
+    irb(main):006:0> write('user-timeline', '@peter comment on post Redis code analysis (1)')
     => true
-    irb(main):007:0> write('user-time-feed', '@tom comment on post Redis code analysis (1)')
+    irb(main):007:0> write('user-timeline', '@tom comment on post Redis code analysis (1)')
     => true
-    irb(main):008:0> recent('user-time-feed', 5).each {|feed| p feed}       # 读取并打印最新 5 条时间 feed
+    irb(main):008:0> recent('user-timeline', 5).each {|msg| p msg}       # 读取并打印最新 5 条时间线信息
     ["@tom comment on post Redis code analysis (1)", 1344850781.377236]
     ["@peter comment on post Redis code analysis (1)", 1344850767.113229]
     ["you write new post Redis code analysis (1)", 1344850732.5523758]
