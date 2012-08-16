@@ -28,23 +28,10 @@ update_zmalloc_stat_alloc 会记录全局的内存申请状况 (used_memory)，�
 
 如果字符串是一个数字，则可以重用已经预分配的redisObject
 
-    robj *createStringObjectFromLongLong(long long value) { 
-        robj *o; 
-        if (value >= 0 && value < REDIS_SHARED_INTEGERS && 
-            pthread_equal(pthread_self(),server.mainthread)) { 
-            incrRefCount(shared.integers[value]); //reuse share objects 
-            o = shared.integers[value]; 
-        } else { 
-            if (value >= LONG_MIN && value <= LONG_MAX) { 
-                o = createObject(REDIS_STRING, NULL); 
-                o->encoding = REDIS_ENCODING_INT; 
-                o->ptr = (void*)((long)value); 
-            } else { 
-                o = createObject(REDIS_STRING,sdsfromlonglong(value)); 
-            } 
-        } 
-        return o; 
-    } 
+        for (j = 0; j < REDIS_SHARED_INTEGERS; j++) {
+            shared.integers[j] = createObject(REDIS_STRING,(void*)(long)j);
+            shared.integers[j]->encoding = REDIS_ENCODING_INT;
+        }
 
 如果发现这个数字的大小，正好在这个范围内(0 - 1000)，那么就可以重用这个数字，而不需要动态的 malloc 一个对象了。这种使用引用技术的不变类的方法，在很多虚拟机语言里也常被使用，利用Python，java。
 

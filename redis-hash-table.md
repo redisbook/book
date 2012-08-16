@@ -10,7 +10,7 @@ key-value 数据库的 kv 查询的实现有很多种，
 在Redis里 hash 无处不在，全局的 key-value 查询，内部的 hash 数据结构，命令与函数指针的关系都是使用 hash。hash的实现在src/dict.c、src/dict.h 里。
 
 常见的命令（例如get，set等）会调用的函数指针，这个数据结构也是以hash table的形式存储的。
-每次客户端输入”set aa bb”等数据的时候，解析得到字符串”set”后，会根据“set”作为一个key，查找到value，一个函数指针（setCommand），然后再把“aa”、“bb“作为参数传给这个函数。这个hash table存储在redisServer->command里，每次redis-server启动的时候会对readonlyCommandTable 这个数组进行加工（populateCommandTable）转化成 redisServer->command 这个 hash table 方便查询，而非遍历 readonlyCommandTable 查找要执行的函数。 
+每次客户端输入”set aa bb”等数据的时候，解析得到字符串”set”后，会根据“set”作为一个key，查找到value，一个函数指针（setCommand），然后再把“aa”、“bb“作为参数传给这个函数。这个hash table存储在redisServer->command里，每次redis-server启动的时候会对``readonlyCommandTable`` 这个数组进行加工（populateCommandTable）转化成 redisServer->command 这个 hash table 方便查询，而非遍历``readonlyCommandTable``查找要执行的函数。 
 
 ##hash源码分析
 

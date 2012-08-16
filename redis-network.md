@@ -18,9 +18,13 @@
             sds querybuf;           //读缓冲
             int argc;               //读缓冲解析后的单元个数
             robj *argv;             //读缓冲解析后的对象数组。
-            //...
-            int bufpos;             //写缓冲的位置
-            char buf[REDIS_REPLY_CHUNK_BYTES];  //写缓冲
+
+            list *reply;            //multi replies 写缓冲链表
+            int reply_bytes         //multi replies 写缓冲链表内字符串的总长度，好像没作用
+
+            int sentlen;            //写缓冲数组的已经写出的位置
+            int bufpos;             //写缓冲数组的末尾
+            char buf[REDIS_REPLY_CHUNK_BYTES];  //单回应写缓冲数组
         }
 
 连接建立好之后，把该连接，加入到全局的事件管理器里，当有读事件发生的时候，调用回调函数``readQueryFromClient``（src/networking.c）。
@@ -37,14 +41,14 @@
 
 ##processInputBuffer
 
-该函数会根据``querybuf``里的内容，进行字符串解析，存入``argv``内，然后通过``lookupCommand``确定是哪个命令。
+该函数会根据``querybuf``里的内容，进行字符串解析，存入``argv``内，然后通过``lookupCommand``确定``argv[1]``是哪个命令。
 
-再根据``redisServer->command``这个哈希表找到相应的函数。然后把``argv``里的参数传入相应的函数。
+再根据``redisServer->command``这个哈希表找到命令相应的函数。然后把``argv``里的参数传入相应的函数。
 
 执行完函数之后，把执行的结果存储在``buf``里，然后再注册一个写事件函数``sendReplyToClient``。
 
 
-##argc&&argv
+## c->argc, c->argv
 
 例如一个``set a 1``的命令，解析后结果如下。
 
@@ -59,5 +63,7 @@
 写事件比较简单，把``buf``里的内容通过连接统统写回去就算完成了，由于是非阻塞io，所以要判断返回值循环处理，直到``bufpos``为零。
 最后再删除这个写事件。
 
+
+好了这就是一个处理命令的全过程，简单吧，下面还会详细介绍。
 
 

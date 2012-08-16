@@ -1,12 +1,8 @@
 ##数据结构
 
-
 ![Redis data structure](https://raw.github.com/Redisbook/book/master/image/Redis_db_data_structure.png)
 
 每个 key-value 的数据都会存储在 RedisDb 这个结构里，而 RedisDb 就是一个 hash table。
-
-
-
 
 
 ###尽力节省空间

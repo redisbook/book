@@ -2,11 +2,11 @@
 
 Redis的复制的原理和使用都非常简单。只需要在slave端键入
 
-    slaveof masterip port
+        slaveof masterip port
 
 取消复制，从slave状态的转换回master状态，切断与原master的数据同步。
 
-    slaveof no one
+        slaveof no one
 
 一个master可以有多个slave，不可以 dual master。
 
