@@ -99,7 +99,7 @@ Sds 模块对 ``sdshdr`` 结构使用了一点小技巧（trick）：通过指�
 
 ``s - (sizeof(struct sdshdr))`` 表示将指针向前移动到 ``struct sdshdr`` 的起点，从而得出一个指向 ``sdshdr`` 结构的指针：
 
-![指针运算图示](https://github.com/huangz1990/huangz1990.github.com/raw/c01113690b99c6bd533f633688f641e2d73ad64c/_image/2012-07-25/sdshdr.png)
+![指针运算图示](https://raw.github.com/redisbook/book/master/image/redis_sdshdr.png)
 
 ``sdslen`` 函数是使用这种技巧的其中一个例子：
 
