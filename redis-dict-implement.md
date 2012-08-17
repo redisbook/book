@@ -1,13 +1,3 @@
----
-layout: post
-title: "Redis 字典结构实现分析"
-description: ""
-category: "Redis 源码分析"
-tags: ["Redis", "源码分析", "C"]
----
-{% include JB/setup %}
-
-
 简介
 -----
 
@@ -27,15 +17,13 @@ tags: ["Redis", "源码分析", "C"]
 
 其中， ``dict`` 结构的定义如下：
 
-{% highlight c %}
-typedef struct dict {
-    dictType *type;     // 为哈希表中不同类型的值所使用的一族操作函数
-    void *privdata;
-    dictht ht[2];       // 每个字典使用两个哈希表（用于渐增式 rehash）
-    int rehashidx;      // 指示 rehash 是否正在进行，如果不是则为 -1
-    int iterators;      // 当前正在使用的 iterator 的数量
-} dict;
-{% endhighlight %}
+    typedef struct dict {
+        dictType *type;     // 为哈希表中不同类型的值所使用的一族操作函数
+        void *privdata;
+        dictht ht[2];       // 每个字典使用两个哈希表（用于渐增式 rehash）
+        int rehashidx;      // 指示 rehash 是否正在进行，如果不是则为 -1
+        int iterators;      // 当前正在使用的 iterator 的数量
+    } dict;
 
 代码中的注释基本说明相关属性的作用了，需要补充的一些是：
 
@@ -45,28 +33,24 @@ typedef struct dict {
 
 接下来是哈希表结构 ``dictht`` ，这个哈希表是一个典型的 separate chaining hash table 实现，它通过将哈希值相同的元素放到同一个链表中来解决冲突问题：
 
-{% highlight c %}
-typedef struct dictht {
-    dictEntry **table;      // 节点指针数组
-    unsigned long size;     // 桶的大小（最多可容纳多少节点）
-    unsigned long sizemask; // mask 码，用于地址索引计算
-    unsigned long used;     // 已有节点数量
-} dictht;
-{% endhighlight %}
+    typedef struct dictht {
+        dictEntry **table;      // 节点指针数组
+        unsigned long size;     // 桶的大小（最多可容纳多少节点）
+        unsigned long sizemask; // mask 码，用于地址索引计算
+        unsigned long used;     // 已有节点数量
+    } dictht;
 
 最后要介绍的是链表的节点结构 ``dictEntry`` ：
 
-{% highlight c %}
-typedef struct dictEntry {
-    void *key;              // 键
-    union {
-        void *val;
-        uint64_t u64;
-        int64_t s64;
-    } v;                    // 值(可以有几种不同类型)
-    struct dictEntry *next; // 指向下一个哈希节点(形成链表)
-} dictEntry;
-{% endhighlight %}
+    typedef struct dictEntry {
+        void *key;              // 键
+        union {
+            void *val;
+            uint64_t u64;
+            int64_t s64;
+        } v;                    // 值(可以有几种不同类型)
+        struct dictEntry *next; // 指向下一个哈希节点(形成链表)
+    } dictEntry;
 
 ``dictEntry`` 中的 ``key`` 属性保存字典的键，而 ``v`` 属性则保存字典的值， ``next`` 保存一个指向 ``dictEntry`` 自身的指针，用于构成链表，解决哈希值的冲突问题。
 
@@ -82,44 +66,38 @@ typedef struct dictEntry {
 
 ``dictCreate`` 函数创建一个新的 ``dict`` 结构，然后将它传给 ``_dictInit`` 函数：
 
-{% highlight c %}
-dict *dictCreate(dictType *type, void *privDataPtr)
-{
-    dict *d = zmalloc(sizeof(*d));
+    dict *dictCreate(dictType *type, void *privDataPtr)
+    {
+        dict *d = zmalloc(sizeof(*d));
 
-    _dictInit(d,type,privDataPtr);
-    return d;
-}
-{% endhighlight %}
+        _dictInit(d,type,privDataPtr);
+        return d;
+    }
 
 ``_dictInit`` 函数为 ``dict`` 结构的各个属性设置默认值，并调用 ``_dictReset`` 函数为两个哈希表进行初始化设置：
 
-{% highlight c %}
-int _dictInit(dict *d, dictType *type, void *privDataPtr)
-{
-    _dictReset(&d->ht[0]);      // 初始化字典内的两个哈希表
-    _dictReset(&d->ht[1]);
+    int _dictInit(dict *d, dictType *type, void *privDataPtr)
+    {
+        _dictReset(&d->ht[0]);      // 初始化字典内的两个哈希表
+        _dictReset(&d->ht[1]);
 
-    d->type = type;             // 设置函数指针
-    d->privdata = privDataPtr; 
-    d->rehashidx = -1;          // -1 表示没有在进行 rehash
-    d->iterators = 0;           // 0 表示没有迭代器在进行迭代
+        d->type = type;             // 设置函数指针
+        d->privdata = privDataPtr; 
+        d->rehashidx = -1;          // -1 表示没有在进行 rehash
+        d->iterators = 0;           // 0 表示没有迭代器在进行迭代
 
-    return DICT_OK;             // 返回成功信号
-}
-{% endhighlight %}
+        return DICT_OK;             // 返回成功信号
+    }
 
 ``_dictReset`` 函数为字典的几个属性值赋值，但并不为这两个哈希表的链表数组分配空间：
 
-{% highlight c %}
-static void _dictReset(dictht *ht)
-{
-    ht->table = NULL;   // 未分配空间
-    ht->size = 0;
-    ht->sizemask = 0;
-    ht->used = 0;
-}
-{% endhighlight %}
+    static void _dictReset(dictht *ht)
+    {
+        ht->table = NULL;   // 未分配空间
+        ht->size = 0;
+        ht->sizemask = 0;
+        ht->used = 0;
+    }
 
 
 哈希表链表的创建流程
@@ -136,79 +114,71 @@ static void _dictReset(dictht *ht)
 
 ``dictAddRaw`` 是向字典加入元素这一动作的底层实现，为了计算新加入元素的 ``index`` 值，它会调用 ``_dictKeyIndex`` ：
 
-{% highlight c %}
-dictEntry *dictAddRaw(dict *d, void *key)
-{
-    // 被省略的代码... 
+    dictEntry *dictAddRaw(dict *d, void *key)
+    {
+        // 被省略的代码... 
 
-    // 计算 key 的 index 值
-    // 如果 key 已经存在，_dictKeyIndex 返回 -1 
-    if ((index = _dictKeyIndex(d, key)) == -1)
-        return NULL;
+        // 计算 key 的 index 值
+        // 如果 key 已经存在，_dictKeyIndex 返回 -1 
+        if ((index = _dictKeyIndex(d, key)) == -1)
+            return NULL;
 
-    // 被省略的代码... 
-}
-{% endhighlight %}
+        // 被省略的代码... 
+    }
 
 ``_dictKeyIndex`` 会在计算 ``index`` 值之前，先调用 ``_dictExpandIfNeeded`` ，检查两个哈希表是否有足够的空间容纳新元素：
 
-{% highlight c %}
-static int _dictKeyIndex(dict *d, const void *key)
-{
-    // 被省略的代码...
+    static int _dictKeyIndex(dict *d, const void *key)
+    {
+        // 被省略的代码...
 
-    /* Expand the hashtable if needed */
-    if (_dictExpandIfNeeded(d) == DICT_ERR)
-        return -1;
+        /* Expand the hashtable if needed */
+        if (_dictExpandIfNeeded(d) == DICT_ERR)
+            return -1;
 
-    // 被省略的代码...
-}
-{% endhighlight %}
+        // 被省略的代码...
+    }
 
 进行到 ``_dictExpandIfNeeded`` 这一步，一些有趣的事情就开始发生了， ``_dictExpandIfNeeded`` 会检测到 0 号哈希表还没有分配任何空间，于是它调用 ``dictExpand`` ，传入 ``DICT_HT_INITIAL_SIZE`` 常量，作为哈希表链表数组的初始大小（在当前版本中， ``DICT_HT_INITIAL_SIZE`` 的默认值为 ``4`` ）：
 
-{% highlight c %}
-static int _dictExpandIfNeeded(dict *d)
-{
-    // 被省略的代码...
+    static int _dictExpandIfNeeded(dict *d)
+    {
+        // 被省略的代码...
 
-    /* If the hash table is empty expand it to the intial size. */
-    if (d->ht[0].size == 0) return dictExpand(d, DICT_HT_INITIAL_SIZE);
+        /* If the hash table is empty expand it to the intial size. */
+        if (d->ht[0].size == 0) return dictExpand(d, DICT_HT_INITIAL_SIZE);
 
-    // 被省略的代码...
-}
-{% endhighlight %}
+        // 被省略的代码...
+    }
 
 ``dictExpand`` 会创建一个分配了链表数组的新哈希表，然后进行判断，决定是应该将新哈希表赋值给 0 号哈希表，还是 1 号哈希表：
 
-{% highlight c %}
-int dictExpand(dict *d, unsigned long size)
-{
-    // 创建带链表数组的新哈希表 
-    dictht n; /* the new hash table */
-    unsigned long realsize = _dictNextPower(size);
+    int dictExpand(dict *d, unsigned long size)
+    {
+        // 创建带链表数组的新哈希表 
+        dictht n; /* the new hash table */
+        unsigned long realsize = _dictNextPower(size);
 
-    /* the size is invalid if it is smaller than the number of
-     * elements already inside the hash table */
-    if (dictIsRehashing(d) || d->ht[0].used > size)
-        return DICT_ERR;
+        /* the size is invalid if it is smaller than the number of
+         * elements already inside the hash table */
+        if (dictIsRehashing(d) || d->ht[0].used > size)
+            return DICT_ERR;
 
-    /* Allocate the new hash table and initialize all pointers to NULL */
-    n.size = realsize;
-    n.sizemask = realsize-1;
-    n.table = zcalloc(realsize*sizeof(dictEntry*));
-    n.used = 0;
+        /* Allocate the new hash table and initialize all pointers to NULL */
+        n.size = realsize;
+        n.sizemask = realsize-1;
+        n.table = zcalloc(realsize*sizeof(dictEntry*));
+        n.used = 0;
 
-    /* Is this the first initialization? If so it's not really a rehashing
-     * we just set the first hash table so that it can accept keys. */
-    if (d->ht[0].table == NULL) {
-        d->ht[0] = n;       // 将新哈希表赋值给 0 号哈希表
-        return DICT_OK;     // 然后返回
+        /* Is this the first initialization? If so it's not really a rehashing
+         * we just set the first hash table so that it can accept keys. */
+        if (d->ht[0].table == NULL) {
+            d->ht[0] = n;       // 将新哈希表赋值给 0 号哈希表
+            return DICT_OK;     // 然后返回
+        }
+
+        // 被省略的代码 ...
     }
-
-    // 被省略的代码 ...
-}
-{% endhighlight %}
 
 到了这一步， 0 号哈希表已经从无到有被创建出来了。
 
@@ -228,64 +198,60 @@ int dictExpand(dict *d, unsigned long size)
 
 ``_dictExpandIfNeeded`` 函数检查字典是否需要扩展，每次往字典里添加新元素之前，这个函数都会被执行：
 
-{% highlight c %}
-static int _dictExpandIfNeeded(dict *d)
-{
-    // 被省略的代码...
+    static int _dictExpandIfNeeded(dict *d)
+    {
+        // 被省略的代码...
 
-    // 当 0 号哈希表的已用节点数大于等于它的桶数量，
-    // 且以下两个条件的其中之一被满足时，执行 expand 操作：
-    // 1) dict_can_resize 变量为真，正常 expand
-    // 2) 已用节点数除以桶数量的比率超过变量 dict_force_resize_ratio ，强制 expand
-    // (目前版本中 dict_force_resize_ratio = 5)
-    if (d->ht[0].used >= d->ht[0].size &&
-        (dict_can_resize ||
-         d->ht[0].used/d->ht[0].size > dict_force_resize_ratio))
-        {
-            return dictExpand(d, ((d->ht[0].size > d->ht[0].used) ?
-                                        d->ht[0].size : d->ht[0].used)*2);
-        }
+        // 当 0 号哈希表的已用节点数大于等于它的桶数量，
+        // 且以下两个条件的其中之一被满足时，执行 expand 操作：
+        // 1) dict_can_resize 变量为真，正常 expand
+        // 2) 已用节点数除以桶数量的比率超过变量 dict_force_resize_ratio ，强制 expand
+        // (目前版本中 dict_force_resize_ratio = 5)
+        if (d->ht[0].used >= d->ht[0].size &&
+            (dict_can_resize ||
+             d->ht[0].used/d->ht[0].size > dict_force_resize_ratio))
+            {
+                return dictExpand(d, ((d->ht[0].size > d->ht[0].used) ?
+                                            d->ht[0].size : d->ht[0].used)*2);
+            }
 
-    // 被省略的代码...
-}
-{% endhighlight %}
+        // 被省略的代码...
+    }
 
 可以看到，当代码注释中所说的两种情况的其中一种被满足的时候， ``dictExpand`` 函数就会被调用： 0 号哈希表的桶数量和节点数量两个数值之间的较大者乘以 2 ，就会被作为第二个参数传入 ``dictExpand`` 函数。
 
 这次调用 ``dictExpand`` 函数执行的是和之前创建 0 号哈希表时不同的路径 —— 这一次，程序执行的是 else case —— 它将新哈希表赋值给 1 号哈希表，并将字典的 ``rehashidx`` 属性从 ``-1`` 改为 ``0``：
 
-{% highlight c %}
-int dictExpand(dict *d, unsigned long size)
-{
-    // 创建带链表数组的新哈希表 
-    dictht n; /* the new hash table */
-    unsigned long realsize = _dictNextPower(size);
+    int dictExpand(dict *d, unsigned long size)
+    {
+        // 创建带链表数组的新哈希表 
+        dictht n; /* the new hash table */
+        unsigned long realsize = _dictNextPower(size);
 
-    /* the size is invalid if it is smaller than the number of
-     * elements already inside the hash table */
-    if (dictIsRehashing(d) || d->ht[0].used > size)
-        return DICT_ERR;
+        /* the size is invalid if it is smaller than the number of
+         * elements already inside the hash table */
+        if (dictIsRehashing(d) || d->ht[0].used > size)
+            return DICT_ERR;
 
-    /* Allocate the new hash table and initialize all pointers to NULL */
-    n.size = realsize;
-    n.sizemask = realsize-1;
-    n.table = zcalloc(realsize*sizeof(dictEntry*));
-    n.used = 0;
+        /* Allocate the new hash table and initialize all pointers to NULL */
+        n.size = realsize;
+        n.sizemask = realsize-1;
+        n.table = zcalloc(realsize*sizeof(dictEntry*));
+        n.used = 0;
 
-    /* Is this the first initialization? If so it's not really a rehashing
-     * we just set the first hash table so that it can accept keys. */
-    if (d->ht[0].table == NULL) {
-        d->ht[0] = n;
+        /* Is this the first initialization? If so it's not really a rehashing
+         * we just set the first hash table so that it can accept keys. */
+        if (d->ht[0].table == NULL) {
+            d->ht[0] = n;
+            return DICT_OK;
+        }
+
+        /* Prepare a second hash table for incremental rehashing */
+        // 这次执行这个动作
+        d->ht[1] = n;       // 赋值新哈希表到 d->ht[1]
+        d->rehashidx = 0;   // 将 rehashidx 设置为 0
         return DICT_OK;
     }
-
-    /* Prepare a second hash table for incremental rehashing */
-    // 这次执行这个动作
-    d->ht[1] = n;       // 赋值新哈希表到 d->ht[1]
-    d->rehashidx = 0;   // 将 rehashidx 设置为 0
-    return DICT_OK;
-}
-{% endhighlight %}
 
 
 渐进式 rehash ，以及平摊操作
@@ -303,32 +269,28 @@ Redis 对字典的 rehash 操作是通过将 0 号哈希表中的所有数据移
 
 作为展示渐增式 rehash 的一个例子，以下是 ``dictFind`` 函数的定义：
 
-{% highlight c %}
-dictEntry *dictFind(dict *d, const void *key)
-{
-    // 被省略的代码...
+    dictEntry *dictFind(dict *d, const void *key)
+    {
+        // 被省略的代码...
 
-    // 检查字典(的哈希表)能否执行 rehash 操作
-    // 如果可以的话，执行平摊 rehash 操作
-    if (dictIsRehashing(d)) _dictRehashStep(d);
+        // 检查字典(的哈希表)能否执行 rehash 操作
+        // 如果可以的话，执行平摊 rehash 操作
+        if (dictIsRehashing(d)) _dictRehashStep(d);
 
-    // 被省略的代码...
-}
-{% endhighlight %}
+        // 被省略的代码...
+    }
 
 其中 ``dictIsRehashing`` 是一个宏，它检查字典的 ``rehashidx`` 属性是否不为 ``-1`` ：
 
-{% highlight c %}
+
 #define dictIsRehashing(ht) ((ht)->rehashidx != -1)
-{% endhighlight %}
+
 
 如果条件成立成立的话， ``_dictRehashStep`` 就会被执行，将一个元素从 0 号哈希表转移到 1 号哈希表：
 
-{% highlight c %}
-static void _dictRehashStep(dict *d) {
-    if (d->iterators == 0) dictRehash(d,1);
-}
-{% endhighlight %}
+    static void _dictRehashStep(dict *d) {
+        if (d->iterators == 0) dictRehash(d,1);
+    }
 
 ``_dictRehashStep`` 定义中的 ``iterators == 0`` 检查表示，当有迭代器在处理字典的时候，不能进行 rehash ，因为迭代器可能会修改字典中的元素，从而造成 rehash 错误。
 
@@ -338,67 +300,63 @@ static void _dictRehashStep(dict *d) {
 
 以下是 ``dictRehash`` 函数的完整实现，它清晰地说明了如何轮换 0 号哈希表和 1 号哈希表，以及，如何将 0 号哈希表的元素 rehash 到 1 号哈希表：
 
-{% highlight c %}
-/* Performs N steps of incremental rehashing. Returns 1 if there are still
- * keys to move from the old to the new hash table, otherwise 0 is returned.
- * Note that a rehashing step consists in moving a bucket (that may have more
- * thank one key as we use chaining) from the old to the new hash table. */
-int dictRehash(dict *d, int n) {
-    if (!dictIsRehashing(d)) return 0;
+    /* Performs N steps of incremental rehashing. Returns 1 if there are still
+     * keys to move from the old to the new hash table, otherwise 0 is returned.
+     * Note that a rehashing step consists in moving a bucket (that may have more
+     * thank one key as we use chaining) from the old to the new hash table. */
+    int dictRehash(dict *d, int n) {
+        if (!dictIsRehashing(d)) return 0;
 
-    while(n--) {
-        dictEntry *de, *nextde;
+        while(n--) {
+            dictEntry *de, *nextde;
 
-        // 如果 0 号哈希表为空，使用 1 号哈希表代替它
-        /* Check if we already rehashed the whole table... */
-        if (d->ht[0].used == 0) {
-            zfree(d->ht[0].table);
-            d->ht[0] = d->ht[1];
-            _dictReset(&d->ht[1]);
-            d->rehashidx = -1;
-            return 0;
+            // 如果 0 号哈希表为空，使用 1 号哈希表代替它
+            /* Check if we already rehashed the whole table... */
+            if (d->ht[0].used == 0) {
+                zfree(d->ht[0].table);
+                d->ht[0] = d->ht[1];
+                _dictReset(&d->ht[1]);
+                d->rehashidx = -1;
+                return 0;
+            }
+
+            // 进行 rehash 
+            /* Note that rehashidx can't overflow as we are sure there are more
+             * elements because ht[0].used != 0 */
+            assert(d->ht[0].size > (unsigned)d->rehashidx);
+            while(d->ht[0].table[d->rehashidx] == NULL) d->rehashidx++;
+            de = d->ht[0].table[d->rehashidx];
+            /* Move all the keys in this bucket from the old to the new hash HT */
+            while(de) {
+                unsigned int h;
+
+                nextde = de->next;
+                /* Get the index in the new hash table */
+                h = dictHashKey(d, de->key) & d->ht[1].sizemask;
+                de->next = d->ht[1].table[h];
+                d->ht[1].table[h] = de;
+                d->ht[0].used--;
+                d->ht[1].used++;
+                de = nextde;
+            }
+            d->ht[0].table[d->rehashidx] = NULL;
+            d->rehashidx++;
         }
-
-        // 进行 rehash 
-        /* Note that rehashidx can't overflow as we are sure there are more
-         * elements because ht[0].used != 0 */
-        assert(d->ht[0].size > (unsigned)d->rehashidx);
-        while(d->ht[0].table[d->rehashidx] == NULL) d->rehashidx++;
-        de = d->ht[0].table[d->rehashidx];
-        /* Move all the keys in this bucket from the old to the new hash HT */
-        while(de) {
-            unsigned int h;
-
-            nextde = de->next;
-            /* Get the index in the new hash table */
-            h = dictHashKey(d, de->key) & d->ht[1].sizemask;
-            de->next = d->ht[1].table[h];
-            d->ht[1].table[h] = de;
-            d->ht[0].used--;
-            d->ht[1].used++;
-            de = nextde;
-        }
-        d->ht[0].table[d->rehashidx] = NULL;
-        d->rehashidx++;
+        return 1;
     }
-    return 1;
-}
-{% endhighlight %}
 
 另外，还有一个确保 rehash 得以最终完成的重要条件，那就是 —— 当 ``rehashidx`` 不等于 ``-1`` ，也即是 ``dictIsRehashing`` 为真时，所有新添加的元素都会直接被加到 1 号数据库，这样 0 号哈希表的大小就会只减不增，最终 rehash 总会有完成的一刻（假如新加入的元素还继续被放进 0 号哈希表，那么尽管平摊 rehash 一直在努力地进行，但说不定 rehash 还是永远也完成不了）： 
 
-{% highlight c %}
-dictEntry *dictAddRaw(dict *d, void *key)
-{
-    // 被省略的代码...
+    dictEntry *dictAddRaw(dict *d, void *key)
+    {
+        // 被省略的代码...
 
-    // 如果字典正在进行 rehash ，那么将新元素添加到 1 号哈希表，
-    // 否则，使用 0 号哈希表
-    ht = dictIsRehashing(d) ? &d->ht[1] : &d->ht[0];
+        // 如果字典正在进行 rehash ，那么将新元素添加到 1 号哈希表，
+        // 否则，使用 0 号哈希表
+        ht = dictIsRehashing(d) ? &d->ht[1] : &d->ht[0];
 
-    // 被省略的代码...
-}
-{% endhighlight %}
+        // 被省略的代码...
+    }
 
 另外，除了 ``_dictRehashStep`` 以及 ``dictAddRaw`` 的特殊处理之外，Redis 还会在每次事件中断器运行的时候，执行一个为时一毫秒的 ``rehash`` 操作，在文件 ``redis.c`` 中的 ``serverCron`` 函数中记录了这一点。
 
@@ -410,54 +368,48 @@ dictEntry *dictAddRaw(dict *d, void *key)
 
 我们知道哈希表最初的大小是由 ``DICT_HT_INITIAL_SIZE`` 常量决定的，而当 rehash 开始之后，根据给定的条件，哈希表的大小就会发生变动：
 
-{% highlight c %}
-static int _dictExpandIfNeeded(dict *d)
-{
-    // 被省略的代码...
-
-    if (d->ht[0].used >= d->ht[0].size &&
-        (dict_can_resize ||
-         d->ht[0].used/d->ht[0].size > dict_force_resize_ratio))
+    static int _dictExpandIfNeeded(dict *d)
     {
-        return dictExpand(d, ((d->ht[0].size > d->ht[0].used) ?
-        d->ht[0].size : d->ht[0].used)*2);
-    }
+        // 被省略的代码...
 
-    // 被省略的代码...
-}
-{% endhighlight %}
+        if (d->ht[0].used >= d->ht[0].size &&
+            (dict_can_resize ||
+             d->ht[0].used/d->ht[0].size > dict_force_resize_ratio))
+        {
+            return dictExpand(d, ((d->ht[0].size > d->ht[0].used) ?
+            d->ht[0].size : d->ht[0].used)*2);
+        }
+
+        // 被省略的代码...
+    }
 
 可以看到， ``d->ht[0].size`` 和 ``d->ht[0].used`` 两个数之间的较大者乘以 ``2`` ，会作为 ``size`` 参数的值被传入 ``dictExpand`` 函数。
 
 但是，尽管如此，这个数值仍然还不是哈希表的最终大小，因为在 ``dictExpand`` 里面，真正的哈希表大小需要 ``_dictNextPower`` 函数根据传入的 ``size`` 参数计算之后才能得出：
 
-{% highlight c %}
-int dictExpand(dict *d, unsigned long size)
-{
-    // 被省略的代码...
+    int dictExpand(dict *d, unsigned long size)
+    {
+        // 被省略的代码...
 
-    // 计算哈希表的(真正)大小
-    unsigned long realsize = _dictNextPower(size);
+        // 计算哈希表的(真正)大小
+        unsigned long realsize = _dictNextPower(size);
 
-    // 被省略的代码...
-}
-{% endhighlight %}
+        // 被省略的代码...
+    }
 
 ``_dictNextPower`` 不断计算 2 的乘幂，直到遇到大于等于 ``size`` 参数的乘幂，就返回这个乘幂作为哈希表的大小：
 
-{% highlight c %}
-static unsigned long _dictNextPower(unsigned long size)
-{
-    unsigned long i = DICT_HT_INITIAL_SIZE;
+    static unsigned long _dictNextPower(unsigned long size)
+    {
+        unsigned long i = DICT_HT_INITIAL_SIZE;
 
-    if (size >= LONG_MAX) return LONG_MAX;
-    while(1) {
-        if (i >= size)
-            return i;
-        i *= 2;
+        if (size >= LONG_MAX) return LONG_MAX;
+        while(1) {
+            if (i >= size)
+                return i;
+            i *= 2;
+        }
     }
-}
-{% endhighlight %}
 
 虽然桶的元素个数 ``d->ht[0].size`` 刚开始是固定的( ``DICT_HT_INITIAL_SIZE`` )，但是，因为我们没有办法预知 ``d->ht[0].used`` 的值，所以我们没有办法准确预估新哈希表的大小，不过，我们可以确定以下两个关于哈希表大小的性质：
 
