@@ -282,9 +282,7 @@ Redis 对字典的 rehash 操作是通过将 0 号哈希表中的所有数据移
 
 其中 ``dictIsRehashing`` 是一个宏，它检查字典的 ``rehashidx`` 属性是否不为 ``-1`` ：
 
-
-#define dictIsRehashing(ht) ((ht)->rehashidx != -1)
-
+    #define dictIsRehashing(ht) ((ht)->rehashidx != -1)
 
 如果条件成立成立的话， ``_dictRehashStep`` 就会被执行，将一个元素从 0 号哈希表转移到 1 号哈希表：
 
