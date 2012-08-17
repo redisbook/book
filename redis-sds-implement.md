@@ -1,13 +1,3 @@
----
-layout: post
-title: "Redis sds 数据结构实现分析"
-description: ""
-category: "Redis 源码分析"
-tags: ["Redis", "源码分析", "C", "字符串"]
----
-{% include JB/setup %}
-
-
 本文内容
 -------------
 
@@ -27,24 +17,20 @@ Sds （Simple Dynamic Strings）是 Redis 中最基本的底层数据结构，
 
 与 sds 实现有关的数据类型有两个，一个是 ``sds`` ：
 
-{% highlight c %}
-// 字符串类型的别名
-typedef char *sds;  
-{% endhighlight %}
+    // 字符串类型的别名
+    typedef char *sds;  
 
 另一个是 ``sdshdr`` ：
 
-{% highlight c %}
-// 持有 sds 的结构
-struct sdshdr {     
-    // buf 中已被使用的字符串空间数量
-    int len;        
-    // buf 中预留字符串空间数量
-    int free;       
-    // 实际储存字符串的地方
-    char buf[];
-};
-{% endhighlight %}
+    // 持有 sds 的结构
+    struct sdshdr {     
+        // buf 中已被使用的字符串空间数量
+        int len;        
+        // buf 中预留字符串空间数量
+        int free;       
+        // 实际储存字符串的地方
+        char buf[];
+    };
 
 其中， ``sds`` 只是字符数组类型 ``char*`` 的别名，
 而 ``sdshdr`` 则用于持有和保存 ``sds`` 的信息。
@@ -63,61 +49,53 @@ Sds 模块对 ``sdshdr`` 结构使用了一点小技巧（trick）：通过指�
 
 ``sdsnewlen`` 函数返回一个新的 ``sds`` 值，实际上，它创建的却是一个 ``sdshdr`` 结构：
 
-{% highlight c %}
-// 根据给定初始化值和初始化长度
-// 创建或重分配一个 sds
-sds sdsnewlen(const void *init, size_t initlen) {
-    struct sdshdr *sh;
+    // 根据给定初始化值和初始化长度
+    // 创建或重分配一个 sds
+    sds sdsnewlen(const void *init, size_t initlen) {
+        struct sdshdr *sh;
 
-    if (init) {
-        // 创建
-        sh = zmalloc(sizeof(struct sdshdr)+initlen+1);  
-    } else {
-        // 重分配
-        sh = zcalloc(sizeof(struct sdshdr)+initlen+1);  
+        if (init) {
+            // 创建
+            sh = zmalloc(sizeof(struct sdshdr)+initlen+1);  
+        } else {
+            // 重分配
+            sh = zcalloc(sizeof(struct sdshdr)+initlen+1);  
+        }
+
+        if (sh == NULL) return NULL;
+
+        sh->len = initlen;
+        sh->free = 0;   // 刚开始时 free 为 0
+
+        // 设置字符串值
+        if (initlen && init)
+            memcpy(sh->buf, init, initlen); 
+        sh->buf[initlen] = '\0';
+
+        // 只返回 sh->buf 这个字符串部分
+        return (char*)sh->buf;  
     }
-
-    if (sh == NULL) return NULL;
-
-    sh->len = initlen;
-    sh->free = 0;   // 刚开始时 free 为 0
-
-    // 设置字符串值
-    if (initlen && init)
-        memcpy(sh->buf, init, initlen); 
-    sh->buf[initlen] = '\0';
-
-    // 只返回 sh->buf 这个字符串部分
-    return (char*)sh->buf;  
-}
-{% endhighlight %}
 
 通过使用变量持有一个 ``sds`` 值，在遇到那些只处理 ``sds`` 值本身的函数时，可以直接将 ``sds`` 传给它们。比如说， ``sdstoupper`` 函数就是其中的一个例子：
 
-{% highlight c %}
-sds s = sdsnewlen("hello moto", 10);
-sdstolower(s);
-// 现在 s 的值应该是 "HELLO MOTO"
-{% endhighlight %}
+    sds s = sdsnewlen("hello moto", 10);
+    sdstolower(s);
+    // 现在 s 的值应该是 "HELLO MOTO"
 
 ``sdstoupper`` 函数将字符串内的字符全部转换为大写：
 
-{% highlight c %}
-void sdstoupper(sds s) {
-    int len = sdslen(s), j;
+    void sdstoupper(sds s) {
+        int len = sdslen(s), j;
 
-    for (j = 0; j < len; j++) s[j] = toupper(s[j]);
-}
-{% endhighlight %}
+        for (j = 0; j < len; j++) s[j] = toupper(s[j]);
+    }
 
 但是，有时候，我们不仅需要处理 ``sds`` 值本身 （也即是 ``sdshdr.buf`` 属性），还需要对 ``sdshdr`` 中其他属性，比如 ``sdshdr.len`` 和 ``sdshdr.free`` 进行处理。
 
 使用指针运算，可以从 ``sds`` 值中计算出相应的 ``sdshdr`` 结构：
 
-{% highlight c %}
-// s 是一个 sds 值
-struct sdshdr *sh = (void*) (s-(sizeof(struct sdshdr)));
-{% endhighlight %}
+    // s 是一个 sds 值
+    struct sdshdr *sh = (void*) (s-(sizeof(struct sdshdr)));
 
 ``s - (sizeof(struct sdshdr))`` 表示将指针向前移动到 ``struct sdshdr`` 的起点，从而得出一个指向 ``sdshdr`` 结构的指针：
 
@@ -125,16 +103,14 @@ struct sdshdr *sh = (void*) (s-(sizeof(struct sdshdr)));
 
 ``sdslen`` 函数是使用这种技巧的其中一个例子：
 
-{% highlight c %}
-// 返回字符串内容的实际长度
-static inline size_t sdslen(const sds s) {
+    // 返回字符串内容的实际长度
+    static inline size_t sdslen(const sds s) {
 
-    // 从 sds 中计算出相应的 sdshdr 结构
-    struct sdshdr *sh = (void*)(s-(sizeof(struct sdshdr)));
+        // 从 sds 中计算出相应的 sdshdr 结构
+        struct sdshdr *sh = (void*)(s-(sizeof(struct sdshdr)));
 
-    return sh->len;
-}
-{% endhighlight %}
+        return sh->len;
+    }
 
 
 函数实现
@@ -144,45 +120,43 @@ Sds 模块中的大部分函数都是对常见字符串处理函数的重新实�
 
 唯一一个需要提及的，和 Redis 的实现决策相关的函数是 ``sdsMakeRoomFor`` ：
 
-{% highlight c %}
-/* Enlarge the free space at the end of the sds string so that the caller
- * is sure that after calling this function can overwrite up to addlen
- * bytes after the end of the string, plus one more byte for nul term.
- * 
- * Note: this does not change the *size* of the sds string as returned
- * by sdslen(), but only the free buffer space we have. */
-// 扩展 sds 的预留空间， 确保在调用这个函数之后，
-// sds 字符串后的 addlen + 1 bytes（for NULL） 可写
-sds sdsMakeRoomFor(sds s, size_t addlen) {
-    struct sdshdr *sh, *newsh;
-    size_t free = sdsavail(s);
-    size_t len, newlen;
+    /* Enlarge the free space at the end of the sds string so that the caller
+     * is sure that after calling this function can overwrite up to addlen
+     * bytes after the end of the string, plus one more byte for nul term.
+     * 
+     * Note: this does not change the *size* of the sds string as returned
+     * by sdslen(), but only the free buffer space we have. */
+    // 扩展 sds 的预留空间， 确保在调用这个函数之后，
+    // sds 字符串后的 addlen + 1 bytes（for NULL） 可写
+    sds sdsMakeRoomFor(sds s, size_t addlen) {
+        struct sdshdr *sh, *newsh;
+        size_t free = sdsavail(s);
+        size_t len, newlen;
 
-    // 预留空间可以满足本次拼接
-    if (free >= addlen) return s;
+        // 预留空间可以满足本次拼接
+        if (free >= addlen) return s;
 
-    len = sdslen(s);
-    sh = (void*) (s-(sizeof(struct sdshdr)));
+        len = sdslen(s);
+        sh = (void*) (s-(sizeof(struct sdshdr)));
 
-    // 设置新 sds 的字符串长度
-    // 这个长度比完成本次拼接实际所需的长度要大
-    // 通过预留空间优化下次拼接操作
-    newlen = (len+addlen);
-    if (newlen < SDS_MAX_PREALLOC)
-        newlen *= 2;
-    else
-        newlen += SDS_MAX_PREALLOC;
+        // 设置新 sds 的字符串长度
+        // 这个长度比完成本次拼接实际所需的长度要大
+        // 通过预留空间优化下次拼接操作
+        newlen = (len+addlen);
+        if (newlen < SDS_MAX_PREALLOC)
+            newlen *= 2;
+        else
+            newlen += SDS_MAX_PREALLOC;
 
-    // 重分配 sdshdr
-    newsh = zrealloc(sh, sizeof(struct sdshdr)+newlen+1);
-    if (newsh == NULL) return NULL;
+        // 重分配 sdshdr
+        newsh = zrealloc(sh, sizeof(struct sdshdr)+newlen+1);
+        if (newsh == NULL) return NULL;
 
-    newsh->free = newlen - len;
+        newsh->free = newlen - len;
 
-    // 只返回字符串部分
-    return newsh->buf;
-}
-{% endhighlight %}
+        // 只返回字符串部分
+        return newsh->buf;
+    }
 
 从 ``newlen`` 变量的设置可以看出，如果 ``newlen`` 小于 ``SDS_MAX_PREALLOC`` ，那么 ``newlen`` 的实际值会比所需的长度多出一倍；如果 ``newlen`` 的值大于 ``SDS_MAX_PREALLOC`` ，那么 ``newlen`` 的实际值会加上 ``SDS_MAX_PREALLOC`` （目前 2.9.7 版本的 ``SDS_MAX_PREALLOC`` 默认值为 ``1024 * 1024`` ）。
 
