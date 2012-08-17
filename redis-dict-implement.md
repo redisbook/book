@@ -23,7 +23,7 @@ tags: ["Redis", "源码分析", "C"]
 
 ``dict.h`` 文件里定义了字典实现的数据结构，比如 ``dict`` 、 ``dictht`` 和 ``dictEntry`` 等，它们之间的关系可以用下图来描述：
 
-![字典的各个数据结构之间的关系](https://github.com/huangz1990/huangz1990.github.com/raw/246c78a03db01fd0624ec59d869477c9b86deb18/_image/2012-07-18/relationship.png)
+![字典的各个数据结构之间的关系](https://raw.github.com/redisbook/book/master/image/redis_dict_datastruct_overview.png)
 
 其中， ``dict`` 结构的定义如下：
 
@@ -78,7 +78,7 @@ typedef struct dictEntry {
 
 使用字典的第一步就是创建字典，创建新字典执行这样一个调用链：
 
-![首次创建字典时执行的调用序列](https://github.com/huangz1990/huangz1990.github.com/raw/246c78a03db01fd0624ec59d869477c9b86deb18/_image/2012-07-18/create-dict.png)
+![首次创建字典时执行的调用序列](https://raw.github.com/redisbook/book/master/image/redis_dict_create.png)
 
 ``dictCreate`` 函数创建一个新的 ``dict`` 结构，然后将它传给 ``_dictInit`` 函数：
 
@@ -132,7 +132,7 @@ static void _dictReset(dictht *ht)
 只有当首次调用 ``dictAdd`` 向字典中加入元素的时候， 0 号哈希表的链表数组才会被创建， ``dictAdd`` 执行这样一个调用序列：
 
 
-![首次添加元素到字典时执行以下调用序列](https://github.com/huangz1990/huangz1990.github.com/raw/246c78a03db01fd0624ec59d869477c9b86deb18/_image/2012-07-18/add-element.png)
+![首次添加元素到字典时执行以下调用序列](https://raw.github.com/redisbook/book/master/image/redis_dict_add_element.png)
 
 ``dictAddRaw`` 是向字典加入元素这一动作的底层实现，为了计算新加入元素的 ``index`` 值，它会调用 ``_dictKeyIndex`` ：
 
@@ -299,7 +299,7 @@ Redis 对字典的 rehash 操作是通过将 0 号哈希表中的所有数据移
 
 为此， Redis 采取了一种更平滑的 rehash 机制，Redis 文档里称之为渐增式 rehash （incremental rehashing）：它将 rehash 操作平摊到 ``dictAddRaw`` 、 ``dictGetRandomKey`` 、 ``dictFind`` 和 ``dictGenericDelete`` 这四个函数里面，每当上述这些函数执行的时候（或者其他函数调用它们的时候）， ``_dictRehashStep`` 函数就会被执行，它每次将 1 个元素从 0 号哈希表移动到 1 号哈希表：
 
-![调用_dictRehashStep的那些函数](https://github.com/huangz1990/huangz1990.github.com/raw/master/_image/2012-07-18/incremental-rehashing-functions.png)
+![调用_dictRehashStep的那些函数](https://raw.github.com/redisbook/book/master/image/redis_dict_incremental_rehashing.png)
 
 作为展示渐增式 rehash 的一个例子，以下是 ``dictFind`` 函数的定义：
 
