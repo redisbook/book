@@ -38,7 +38,7 @@ Redis 的链表结构是一个典型的双端链表（[doubly linked list](http:
 
 以下是双端链表和节点的一个示意图：
 
-![双端链表和节点示意图](https://github.com/huangz1990/huangz1990.github.com/raw/d302df795df25c425b12492ed885d544f5709bb2/_image/2012-07-19/list_and_list_node.png)
+![双端链表和节点示意图](https://raw.github.com/redisbook/book/master/image/redis_adlist.png)
 
 
 list 结构和 listNode 结构的 API
