@@ -229,16 +229,67 @@ used_memory:817228
 
 ## 当内存达到上限后的策略
 
-    lruclock 类似于时间戳，在 serverCron 里被执行
+当达到使用内存 userd_memory 达到 maxmemory，就要通过删除键值来减少内存的使用，否则命令无法执行。
+
+* volatile-lru -> 用 LRU 算法，删除过期的键值来达到节约内存的目的。
+* allkeys-lru -> 用 LRU 算法，删除任意的键值，这里的任意包括过期的键值，和非过期正在使用的键值。
+* volatile-random -> 用随机算法，删除过期的键值。
+* allkeys->random -> 用随机算法，删除任意键值。
+* volatile-ttl -> 删除马上就要过期的键值
+* noeviction -> 不做任何操作，直接报错。
+
+这里的 LRU 算法，和 mintor TTL 算法，严格按照算法来说，需要遍历所有的键值才能知道谁才是应该被删除的，但这样效率太差了。
+于是有另外一个参数，取样次数来决定，在几次的范围内，使用 LRU，或者 TTL算法阿。
+
+默认的策略是 volatile-lru，我们看这种算法的实现。
 
 
-当达到使用内存达到 maxmemory，那么有如下几种策略
+                for (k = 0; k < server.maxmemory_samples; k++) {
+                    sds thiskey;
+                    long thisval;
+                    robj *o;
+             
+                    de = dictGetRandomKey(dict);
+                    thiskey = dictGetEntryKey(de);
+                    /* When policy is volatile-lru we need an additonal lookup
+                     * to locate the real key, as dict is set to db->expires. */
+                    if (server.maxmemory_policy == REDIS_MAXMEMORY_VOLATILE_LRU)
+                        de = dictFind(db->dict, thiskey);
+                    o = dictGetEntryVal(de);
+                    thisval = estimateObjectIdleTime(o);
+             
+                    /* Higher idle time is better candidate for deletion */
+                    if (bestkey == NULL || thisval > bestval) {
+                        bestkey = thiskey;
+                        bestval = thisval;
+                    }
+                }
+
+maxmemory_samples 就是取样次数。这里的 dict 是 db->expires，从过期库里取出一个dictEntry，拿到他的键 thiskey。
+再拿到这个键值在正常库里的dictEntry，再通过 estimateObjectIdleTime 拿到这个键值的 LRU 时间。
+取 maxmemory_samples 次后，LRU 时间最大的键 thiskey，再把其删除
 
 
-* REDIS_MAXMEMORY_ALLKEYS_LRU       当出现内存不够
-* REDIS_MAXMEMORY_ALLKEYS_RANDOM
-* REDIS_MAXMEMORY_VOLATILE_RANDOM
-* REDIS_MAXMEMORY_VOLATILE_LRU
+### estimateObjectIdleTime
 
+estimateObjectIdleTime 是如何拿到键的 LRU 时间内？
 
+我们知道 server.lruclock 类似于时间戳，在 serverCron 里每 100ms 被更新一次。
+
+        int serverCron(struct aeEventLoop *eventLoop, long long id, void *clientData)           
+        {
+            ...
+            updateLRUClock();
+            ...
+        }
+
+而每个键值，再被访问的时候，会把 server.lruclock 写入键值内，这就是键值的 lruclock 了，我们就是通过键值的 lruclock 来判断 LRU 时间的。
+
+        robj *lookupKey(redisDb *db, robj *key) {
+            ....
+            robj *val = dictGetEntryVal(de);
+            if (server.bgsavechildpid == -1 && server.bgrewritechildpid == -1)
+                val->lru = server.lruclock;
+
+上面的代码有个有趣的地方，当在做快照的时候，就不要更新 lruclock，因为这会造成做快照的子进程有大量的 copy on write 的行为。
 
