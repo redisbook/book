@@ -16,7 +16,8 @@ Redis对 malloc、free、calloc、realloc 等库函数进行了包装（zmalloc.
     void zfree(void *ptr) {
         void *realptr; 
         size_t oldsize;
-        if (ptr == NULL) return; realptr = (char*)ptr-PREFIX_SIZE; 
+        if (ptr == NULL) return; 
+        realptr = (char*)ptr-PREFIX_SIZE; 
         oldsize = *((size_t*)realptr); 
         update_zmalloc_stat_free(oldsize+PREFIX_SIZE); 
         free(realptr); 
@@ -24,18 +25,32 @@ Redis对 malloc、free、calloc、realloc 等库函数进行了包装（zmalloc.
 
 update_zmalloc_stat_alloc 会记录全局的内存申请状况 (used_memory)，与 redis.conf 里的 maxmmory 就能够控制全局的内存使用。另外还会并对内存划分的大小分组记录（zmalloc_allocations），这样你就对key-value的大小分布非常的清楚，便于接下来的迁移、合并工作。
 
-#Sharedobjects
+## Sharedobjects
 
-如果字符串是一个数字，则可以重用已经预分配的redisObject
+对于一些程序常见的字符串（例如协议内的\r\n，OK，error，pong），Redis 提前为我们产生了对象，这样再用的使用就不会额外的申请内存。
+
+        struct sharedObjectsStruct shared;
+
+        struct sharedObjectsStruct              
+        {
+         robj *crlf, *ok, *err, *emptybulk, *czero, *cone, *cnegone, *pong, *space,
+         *colon, *nullbulk, *nullmultibulk, *queued,
+         *emptymultibulk, *wrongtypeerr, *nokeyerr, *syntaxerr, *sameobjecterr,
+         *outofrangeerr, *loadingerr, *plus,
+         *select[REDIS_SHARED_SELECT_CMDS],
+         *messagebulk, *pmessagebulk, *subscribebulk, *unsubscribebulk, *mbulk3,
+         *mbulk4, *psubscribebulk, *punsubscribebulk,
+         *integers[REDIS_SHARED_INTEGERS];
+        };
+
+还有从 1 到 REDIS_SHARED_INTEGERS （一般为1000）的数字都已经预分配好了。
 
         for (j = 0; j < REDIS_SHARED_INTEGERS; j++) {
             shared.integers[j] = createObject(REDIS_STRING,(void*)(long)j);
             shared.integers[j]->encoding = REDIS_ENCODING_INT;
         }
 
-如果发现这个数字的大小，正好在这个范围内(0 - 1000)，那么就可以重用这个数字，而不需要动态的 malloc 一个对象了。这种使用引用技术的不变类的方法，在很多虚拟机语言里也常被使用，利用Python，java。
-
-
+当使用这个数字，不需要在栈，或者堆上申请而是引用计数的使用这些不变对象，在很多虚拟机语言里也常被使用，利用 Python，java。
 
 
 ##如何评估内存的使用大小？
@@ -209,5 +224,21 @@ used_memory:817228
 361         if (len < ZIPMAP_BIGLEN) zm[0] = len;
 362     }
 简单把zmlen设置为2个字节(可以存储65534个subkey)可以解决这个问题,今天和antirez聊了一下,这会破坏rdb的兼容性,这个功能改进推迟到3.0版本,另外这个缺陷可能是weibo的redis机器cpu消耗过高的原因之一.
+
+
+
+## 当内存达到上限后的策略
+
+    lruclock 类似于时间戳，在 serverCron 里被执行
+
+
+当达到使用内存达到 maxmemory，那么有如下几种策略
+
+
+* REDIS_MAXMEMORY_ALLKEYS_LRU       当出现内存不够
+* REDIS_MAXMEMORY_ALLKEYS_RANDOM
+* REDIS_MAXMEMORY_VOLATILE_RANDOM
+* REDIS_MAXMEMORY_VOLATILE_LRU
+
 
 

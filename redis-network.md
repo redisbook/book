@@ -45,6 +45,30 @@
 
 再根据``redisServer->command``这个哈希表找到命令相应的函数。然后把``argv``里的参数传入相应的函数。
 
+## call
+
+这是 Redis 最核心函数。执行完相应的命令之后，还有几步工作要做。s
+
+* 记录命令是否导致键值的变化，如果有变化则需要把变化传播到备库。
+
+        if ((dirty > 0 || c->cmd->flags & REDIS_CMD_FORCE_REPLICATION) &&
+        listLength(server.slaves))                     
+        replicationFeedSlaves(server.slaves,c->db->id,c->argv,c->argc);
+
+* 如果激活 AOF，则还会把变化写入到 AOF 文件。
+
+        if (server.appendonly && dirty > 0)
+            feedAppendOnlyFile(c->cmd,c->db->id,c->argv,c->argc);
+
+* 如果存在监控客户连接，则把命令发送给该客户连接
+
+        if (listLength(server.monitors))
+            replicationFeedMonitors(server.monitors,c->db->id,c->argv,c->argc);
+
+* 判断命令的执行时间是否超过慢日志的阀值，是否需要写入满日志
+
+        slowlogPushEntryIfNeeded(c->argv,c->argc,duration);
+
 执行完函数之后，把执行的结果存储在``buf``里，然后再注册一个写事件函数``sendReplyToClient``。
 
 
