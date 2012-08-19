@@ -16,7 +16,8 @@ Redis对 malloc、free、calloc、realloc 等库函数进行了包装（zmalloc.
     void zfree(void *ptr) {
         void *realptr; 
         size_t oldsize;
-        if (ptr == NULL) return; realptr = (char*)ptr-PREFIX_SIZE; 
+        if (ptr == NULL) return; 
+        realptr = (char*)ptr-PREFIX_SIZE; 
         oldsize = *((size_t*)realptr); 
         update_zmalloc_stat_free(oldsize+PREFIX_SIZE); 
         free(realptr); 
@@ -24,18 +25,32 @@ Redis对 malloc、free、calloc、realloc 等库函数进行了包装（zmalloc.
 
 update_zmalloc_stat_alloc 会记录全局的内存申请状况 (used_memory)，与 redis.conf 里的 maxmmory 就能够控制全局的内存使用。另外还会并对内存划分的大小分组记录（zmalloc_allocations），这样你就对key-value的大小分布非常的清楚，便于接下来的迁移、合并工作。
 
-#Sharedobjects
+## Sharedobjects
 
-如果字符串是一个数字，则可以重用已经预分配的redisObject
+对于一些程序常见的字符串（例如协议内的\r\n，OK，error，pong），Redis 提前为我们产生了对象，这样再用的使用就不会额外的申请内存。
+
+        struct sharedObjectsStruct shared;
+
+        struct sharedObjectsStruct              
+        {
+         robj *crlf, *ok, *err, *emptybulk, *czero, *cone, *cnegone, *pong, *space,
+         *colon, *nullbulk, *nullmultibulk, *queued,
+         *emptymultibulk, *wrongtypeerr, *nokeyerr, *syntaxerr, *sameobjecterr,
+         *outofrangeerr, *loadingerr, *plus,
+         *select[REDIS_SHARED_SELECT_CMDS],
+         *messagebulk, *pmessagebulk, *subscribebulk, *unsubscribebulk, *mbulk3,
+         *mbulk4, *psubscribebulk, *punsubscribebulk,
+         *integers[REDIS_SHARED_INTEGERS];
+        };
+
+还有从 1 到 REDIS_SHARED_INTEGERS （一般为1000）的数字都已经预分配好了。
 
         for (j = 0; j < REDIS_SHARED_INTEGERS; j++) {
             shared.integers[j] = createObject(REDIS_STRING,(void*)(long)j);
             shared.integers[j]->encoding = REDIS_ENCODING_INT;
         }
 
-如果发现这个数字的大小，正好在这个范围内(0 - 1000)，那么就可以重用这个数字，而不需要动态的 malloc 一个对象了。这种使用引用技术的不变类的方法，在很多虚拟机语言里也常被使用，利用Python，java。
-
-
+当使用这个数字，不需要在栈，或者堆上申请而是引用计数的使用这些不变对象，在很多虚拟机语言里也常被使用，利用 Python，java。
 
 
 ##如何评估内存的使用大小？
@@ -210,4 +225,71 @@ used_memory:817228
 362     }
 简单把zmlen设置为2个字节(可以存储65534个subkey)可以解决这个问题,今天和antirez聊了一下,这会破坏rdb的兼容性,这个功能改进推迟到3.0版本,另外这个缺陷可能是weibo的redis机器cpu消耗过高的原因之一.
 
+
+
+## 当内存达到上限后的策略
+
+当达到使用内存 userd_memory 达到 maxmemory，就要通过删除键值来减少内存的使用，否则命令无法执行。
+
+* volatile-lru -> 用 LRU 算法，删除过期的键值来达到节约内存的目的。
+* allkeys-lru -> 用 LRU 算法，删除任意的键值，这里的任意包括过期的键值，和非过期正在使用的键值。
+* volatile-random -> 用随机算法，删除过期的键值。
+* allkeys->random -> 用随机算法，删除任意键值。
+* volatile-ttl -> 删除马上就要过期的键值
+* noeviction -> 不做任何操作，直接报错。
+
+这里的 LRU 算法，和 mintor TTL 算法，严格按照算法来说，需要遍历所有的键值才能知道谁才是应该被删除的，但这样效率太差了。
+于是有另外一个参数，取样次数来决定，在几次的范围内，使用 LRU，或者 TTL算法阿。
+
+默认的策略是 volatile-lru，我们看这种算法的实现。
+
+
+                for (k = 0; k < server.maxmemory_samples; k++) {
+                    sds thiskey;
+                    long thisval;
+                    robj *o;
+             
+                    de = dictGetRandomKey(dict);
+                    thiskey = dictGetEntryKey(de);
+                    /* When policy is volatile-lru we need an additonal lookup
+                     * to locate the real key, as dict is set to db->expires. */
+                    if (server.maxmemory_policy == REDIS_MAXMEMORY_VOLATILE_LRU)
+                        de = dictFind(db->dict, thiskey);
+                    o = dictGetEntryVal(de);
+                    thisval = estimateObjectIdleTime(o);
+             
+                    /* Higher idle time is better candidate for deletion */
+                    if (bestkey == NULL || thisval > bestval) {
+                        bestkey = thiskey;
+                        bestval = thisval;
+                    }
+                }
+
+maxmemory_samples 就是取样次数。这里的 dict 是 db->expires，从过期库里取出一个dictEntry，拿到他的键 thiskey。
+再拿到这个键值在正常库里的dictEntry，再通过 estimateObjectIdleTime 拿到这个键值的 LRU 时间。
+取 maxmemory_samples 次后，LRU 时间最大的键 thiskey，再把其删除
+
+
+### estimateObjectIdleTime
+
+estimateObjectIdleTime 是如何拿到键的 LRU 时间内？
+
+我们知道 server.lruclock 类似于时间戳，在 serverCron 里每 100ms 被更新一次。
+
+        int serverCron(struct aeEventLoop *eventLoop, long long id, void *clientData)           
+        {
+            ...
+            updateLRUClock();
+            ...
+        }
+
+而每个键值，再被访问的时候，会把 server.lruclock 写入键值内，这就是键值的 lruclock 了，我们就是通过键值的 lruclock 来判断 LRU 时间的。
+
+        robj *lookupKey(redisDb *db, robj *key) {
+            ....
+            robj *val = dictGetEntryVal(de);
+            if (server.bgsavechildpid == -1 && server.bgrewritechildpid == -1)
+                val->lru = server.lruclock;
+
+上面的代码有个有趣的地方，当在做快照的时候，就不要更新 lruclock，因为这会造成做快照的子进程有大量的 copy on write 的行为。
 

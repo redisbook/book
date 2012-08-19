@@ -59,24 +59,32 @@ slave端的server变量与复制相关的变量。
 
 slave端的server->master
 
-    redisClient {
+        redisClient {
+    
+            int flags;	//slave连接的是什么角色，这里是REDIS_MASTER
 
-        int flags;	//slave连接的是什么角色，这里是REDIS_MASTER
-
-    }
+        }
 
 服务端的redisClient的信息
 
-    redisClient {
-        int flags;     //slave连接上来的client，这里是REDIS_SLAVE
-        int repldbfd;   //传送.rdb数据给slave的时候的fd
-        int slaveseldb; //slave的当前db id
-        int repldboff;  //传送.rdb数据给slave的偏移量，直到等于repldbsize才传送完毕
-        int repldbsize; //.rdb文件的大小
-        int replstate; //
-    }
+        redisClient {
+            int flags;     //slave连接上来的client，这里是REDIS_SLAVE
+            int repldbfd;   //传送.rdb数据给slave的时候的fd
+            int slaveseldb; //slave的当前db id
+            int repldboff;  //传送.rdb数据给slave的偏移量，直到等于repldbsize才传送完毕
+            int repldbsize; //.rdb文件的大小
+            int replstate; //
+        }
+
+
 
 REDIS_CMD_FORCE_REPLICATION 哪些命令必须传输给 slave 端。
+
+## slave-serve-stale-data
+
+该参数如果设置为 no，表示如果备库与主库尚未完全建立连接之前，仅能接收 info 和 slave 命令。
+
+设置为 no 是表合理的，因为此时备库尚不能称之为备库，因为主库的数据还未同步至此。
 
 
 

@@ -199,7 +199,48 @@ encoding
 
 ##解读命令数组
 
+常见的命令（例如get，set等）会调用的函数指针，这个数据结构也是以hash table的形式存储的。
+每次客户端输入”set aa bb”等数据的时候，解析得到字符串”set”后，会根据“set”作为一个key，查找到value，一个函数指针（setCommand），然后再把“aa”、“bb“作为参数传给这个函数。这个hash table存储在redisServer->command里，每次redis-server启动的时候会对``readonlyCommandTable`` 这个数组进行加工（populateCommandTable）转化成 redisServer->command 这个 hash table 方便查询，而非遍历``readonlyCommandTable``查找要执行的函数。 
+
 我们知道``redis-server``启动的时候会调用``populateCommandTable``函数（src/redis.c 830）把``readonlyCommandTable``数组转化成``server.commands``这个哈希表，``lookupCommand``就是一个简单的哈希取值过程，通过 key（get）找到相应的命令函数指针``getCommand``（t_string.c 437）。
 
 我们来解读一下``readonlyCommandTable``这个结构体。
+
+        struct redisCommand
+        {
+            char *name;                             //函数名，对应与哈希表的键
+            redisCommandProc *proc;                 //函数指针，对应哈希表的值
+            int arity;                              //函数的参数个数，可以提前对参数个数进行判断
+            int flags;                              //是否会引发内存的变化
+            /* Use a function to determine which keys need to be loaded
+             * in the background prior to executing this command. Takes precedence
+             * over vm_firstkey and others, ignored when NULL */
+                redisVmPreloadProc *vm_preload_proc;
+            /* What keys should be loaded in background when calling this command? */
+            int vm_firstkey; /* The first argument that's a key (0 = no keys) */
+            int vm_lastkey;  /* THe last argument that's a key */
+            int vm_keystep;  /* The step between first and last key */
+        };
+
+
+flags 如果为 REDIS_CMD_DENYOOM，则表示这个命令的执行会触发内存的变化，所以如果达到最大使用内存会报错;如果为 REDIS_CMD_FORCE_REPLICATION 则表示这个命令一定要传播到背库。
+
+
+###expire
+
+activeExpireCycle
+
+    REDIS_EXPIRELOOKUPS_PER_CRON
+
+    255次，或者 消耗的时间 > REDIS_EXPIRELOOKUPS_TIME_LIMIT 
+
+
+
+### shutdown
+
+在进程退出之前，会做两件事情。
+
+* fsync aof 文件，强制的aof 文件 fd 对应的文件系统级的缓存写入到磁盘里。
+* 做一次全库的快照，这样下次启动的时候，会自动载入这个快照文件，还能继续该次的数据。
+
 

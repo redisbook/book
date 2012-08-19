@@ -65,19 +65,27 @@ RedisServer 这个结构非常重要，是 Redis 服务端程序唯一的一个�
 
 
 ##beforeSleep
-    #TODO
+
+ * 清理unblocked_clients？？
+ * 处理尚未处理的数据，调用 processInputBuffer 为什么还会有数据呢？
+ * flushAppendOnlyFile
+
 
 ##serverCron
 
-时间事件``serverCron``做很多事情。
+时间事件``serverCron``需要做很多事情。
 
- * 出日志展现 Redis 目前的状况。
- * 查看是否需要 rehash 来迁移 keys 到新的 bucket，这个后面会详细讲。
+ * 更新lruclock
+ * 每50次，打印出库内键值状况
+ * 每10次，resize 哈希表？？
+ * 调用 incrementallyRehash 增量哈希
  * 关闭长时间不工作的 client。
  * 处理 bgsave 或者 bgrewriteaof 的子进程退出后的收尾工作。
- * 判断有 keys 的变化而需要执行 bgsave。
- * 清理过期(expire)的 key。
- * 如果自己是主库，会检测备库节点的状况，如果自己是备库，会连接主库。
+ * rewriteAppendOnlyFileBackground ？？
+ * 根据键值的变化判断是否需要启动子进程做快照，或者根据AOF文件的当前状况判断是否需要启动子进程执行 AOF 文件重整理工作。
+ * 如果激活 AOF 延迟刷到磁盘机制，则执行一次 AOF 文件的刷到磁盘
+ * 如果是主库，清理过期(expire)的 键值。
+ * 每10次，也就是1s，执行 replicationCron，如果自己是主库，会检测备库节点的状况，如果自己是备库，会连接主库。
 
 
 ##acceptTcpHandler
