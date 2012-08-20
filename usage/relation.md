@@ -143,7 +143,7 @@
 
 使用 Redis 的集合操作，我们可以在好友关系实现的基础上，提供简单的好友推荐功能。
 
-比如说，可以在用户 A 关注用户 B 之后，对用户 B 的 ``following`` 集合和用户 A 的 ``following`` 集合做一个差集操作，然后将结果推荐给用户 A ，鼓励他/她继续发现有趣的朋友。
+比如说，可以在用户 A 关注用户 B 之后，对用户 B 的 ``following`` 集合和用户 A 的 ``following`` 集合做一个差集操作，然后将结果推荐给用户 A ，鼓励他/她继续发现有趣的人。
 
 以下是这一简单推荐系统的实现代码：
 
@@ -163,11 +163,11 @@
     => "user::12590"
     irb(main):005:0> tom = 'user::228229'
     => "user::228229"
-    irb(main):006:0> follow(peter, jack)
+    irb(main):006:0> follow(peter, jack)    # peter 关注 jack 和 mary
     => true
     irb(main):007:0> follow(peter, mary)
     => true
-    irb(main):008:0> follow(tom, peter)
+    irb(main):008:0> follow(tom, peter)     # tom 关注 peter
     => true
     irb(main):009:0> recommend(tom, peter)
     => ["user::123123", "user::12590"]      # 将 peter 正在关注的 jack 和 mary 推荐给 tom
