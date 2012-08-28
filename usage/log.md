@@ -13,25 +13,15 @@
 
 一个日志系统应该（至少）包含以下几个基本操作：
 
-``write(category, content)``
+``write(category, content)`` 写分类 ``category`` 的新日志，内容为 ``content`` 。
 
-写分类 ``category`` 的新日志，内容为 ``content`` 。
+``read(category, n)`` 返回 ``category`` 分类的第 n 条日志， ``n`` 以 ``0`` 为开始。
 
-``read(category, n)``
+``read_all(category)`` 返回 ``category`` 分类的所有日志。
 
-返回 ``category`` 分类的第 n 条日志， ``n`` 以 ``0`` 为开始。
+``count(category)`` 返回 ``category`` 分类的日志数量。
 
-``read_all(category)``
-
-返回 ``category`` 分类的所有日志。
-
-``count(category)``
-
-返回 ``category`` 分类的日志数量。
-
-``flush(category)``
-
-清空所有分类为 ``category`` 的日志。
+``flush(category)`` 清空所有分类为 ``category`` 的日志。
 
 
 ## 定长日志
