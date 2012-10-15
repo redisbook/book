@@ -423,7 +423,7 @@ Redis 有可能存在大量数据被删除的情况，尤其是 expires 库存�
 在 serverCron 函数里每 10 个轮回会调用 tryResizeHashTables 函数一次来判断哈希表是否需要缩小：
 
     if (server.bgsavechildpid == -1 && server.bgrewritechildpid == -1) {
-        if (!(loops % 10)) tryResizeHashTables();                                                                             
+        if (!(loops % 10)) tryResizeHashTables();
         if (server.activerehashing) incrementallyRehash();
     }
 
@@ -440,7 +440,7 @@ tryResizeHashTables 函数会检查 Redis 所有的数据库（包括 expires �
         } 
     }
 
-htNeedsResize 里是否需要缩小哈希表的判断标准：当键个数 * 100 / 桶的大小小于``REDIS_HT_MINFILL``（默认为10），即使用比低于 10%，则认为哈希表需要缩小，于是会调用 dictResize 函数：
+htNeedsResize 判断是否要缩小哈希表：当键个数 * 100 / 桶的大小小于``REDIS_HT_MINFILL``（默认为10），即使用比低于 10%，则认为哈希表需要缩小于是调用 dictResize 函数：
 
     int htNeedsResize(dict *dict) 
     {                                                          
@@ -452,7 +452,7 @@ htNeedsResize 里是否需要缩小哈希表的判断标准：当键个数 * 100
                 (used*100/size < REDIS_HT_MINFILL));
     }    
 
-dictResize 确定了缩小后的大小，使得键个数等于桶大小即可，当然必须大于桶的最小值``DICT_HT_INITIAL_SIZE``，缩小的过程还是调用 dictExpand 函数对哈希表进行 rehash：
+dictResize 用于确定了哈希表缩小后的大小，这里可见桶大小缩小到和键个数一致，当然必须大于桶的最小值``DICT_HT_INITIAL_SIZE``，缩小的过程还是调用 dictExpand 函数对哈希表进行 rehash：
 
     int dictResize(dict *d) 
     {
@@ -464,6 +464,8 @@ dictResize 确定了缩小后的大小，使得键个数等于桶大小即可，
             minimal = DICT_HT_INITIAL_SIZE;
         return dictExpand(d, minimal);
     }
+
+这就是哈希表缩小的过程。
 
 
 小结
