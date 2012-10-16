@@ -2,6 +2,12 @@
 
 ``dict.c``是个写的非常好的哈希表操作的库，值得学习，值得复用。下面讲讲要如何使用这个库。
 
+首先需要注意这里说的``dict.c`` 是客户端 deps/dict.c，而不是服务端的 src/dict.c，两者有一些区别：
+
+* 服务端的 rehash 是增量形式完成的，所以有 ht[0]，ht[1] 两个桶指针用于切换。而客户端的 rehash 是一次性的行为，所以 dictht 这个结构，在客户端``dict.c``就没有，这样代码就更加简单了，另外 rehash 相关的函数，在客户端里也不提供。
+* 对于服务端，存在空间浪费的问题，所以引入了 dictResize 函数来对内存空间进行清空，这点在客户端里也没有提供。
+
+
 先来解读一下``dictType``这个结构各个字段的作用，这非常的重要。
 
 
@@ -16,14 +22,14 @@
 		void (*valDestructor)(void *privdata, void *obj);
 	} dictType;
 
-以上六个回调函数是在哈希表创建之时，由使用者存入 dict 结构内。
+以上六个回调函数是在哈希表创建之时，由使用者存入 dict 结构内，第一个``hashFunction``是必须的，另外的回调如果存在会在适当的时候被调用。
 
 
 ### hashFunction
 
 当进行哈希转换之时，会调用``hashFunction``，把用户的 key 转化成一个整型数字，使用者应该根据自己的 Key 是什么类型给出响应的哈希函数。
 
-Redis 里的 Key 为一个 sds 的字符串，所以他默认选择的 dictGenHashFunction，Redis 另外还提供了一下对整型（dictIntHashFunction）和对大小写敏感（dictGenCaseHashFunction）的字符串哈希函数。
+Redis 里的 Key 为一个 sds 的字符串，所以他默认选择的 dictGenHashFunction，Redis 服务端哈希另外还提供了一下对整型（dictIntHashFunction）和对大小写敏感（dictGenCaseHashFunction）的字符串哈希函数。
 
 
 ### keyCompare
@@ -88,25 +94,13 @@ Redis 并没有设置使用这两个回调函数，也不推荐使用。
 
 在哈希表里找到指定的键对应的 dictEntry，要拿到键还需要调用宏 dictGetEntryKey，拿到值还要调用宏 dictGetEntryVal。
 
-	void *dictFetchValue(dict *d, const void *key)
-
-在哈希表里找到指定键对应的值。
-
 	int dictReplace(dict *d, void *key, void *val);
 
 对哈希表里的键值进行更换，如果键已存在返回 1，不存在返回 0。
 
 	int dictExpand(dict *d, unsigned long size);
 
-对哈希表进行扩展，size 就是扩展后桶的大小。
-
-    int dictResize(dict *d)
-
-对哈希表进行缩小。
-
-    void dictPrintStats(dict *d)
-
-打印出哈希表的分配状况。
+对哈希表进行扩展，size 就是扩展后桶的大小，这里要注意一下，对于服务端的这个函数，仅仅是吧 rehashidx 设置为 0，表明从 0 号桶开始增量的 rehash行为，而在客户端里，则是在函数内部一次性的弄完整个 rehash。
 
 	void dictRelease(dict *d); 
 
