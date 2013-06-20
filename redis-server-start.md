@@ -9,7 +9,7 @@
 
 ``initServerConfig``函数会给 server（RedisServer） 这个全局变量设置一些默认的参数，比如监听端口为 6379 ,默认的内置 db 个数为 16 等。默认值对于一个用户友好的软件非常重要，谁愿意第一次使用软件还要设置一大堆云里雾里的参数呢？所有的参数后面会详细讲述。
 
-RedisServer 这个结构非常重要，是 Redis 服务端程序唯一的一个结构体，稍后我们会详细接收这个结构体成员的作用。
+RedisServer 这个结构非常重要，是 Redis 服务端程序唯一的一个结构体，稍后我们会详细介绍这个结构体成员的作用。
 
         server.commands = dictCreate(&commandTableDictType,NULL);
         populateCommandTable();                     
